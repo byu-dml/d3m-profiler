@@ -1,34 +1,46 @@
-import sent2vec, csv
+import numpy as np
+import pandas as pd
+import sent2vec
+
+from build_table import DATA_PATH
 
 
-def embed():
+EMBEDDED_DATA_PATH = './embedded_data.csv'
+EMBEDDED_SMALL_DATA_PATH = './embedded_data_small.csv'
+_NUM_THREADS = 2
+
+
+def embed(model_weights_path):
     model = sent2vec.Sent2vecModel()
-    model.load_model('pretrained_embedding_model.bin')
-    vocab = model.get_vocabulary()
-    uni_embs, vocab = model.get_unigram_embeddings()
+    model.load_model(model_weights_path)
+    emb_size = model.get_emb_size()
 
-    input = []
-    with open('train_data.csv', 'r') as in_file:
-        csv_reader = csv.DictReader(in_file)
-        for row in csv_reader:
-            input.append(row)
+    with open(DATA_PATH, 'r') as f:
+        data = pd.read_csv(f, na_filter=False, dtype={'datasetName': str, 'description': str, 'colName': str, 'colType': str})
 
-    output_headers = (
-        ['datasetName_'+str(i) for i in range(700)] +
-        ['description_'+str(i) for i in range(700)] +
-        ['colName_'+str(i) for i in range(700)] +
-        ['colType']
+    dataset_names = data['datasetName'].tolist()
+    dataset_name_embs = model.embed_sentences(data['datasetName'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    description_embs = model.embed_sentences(data['description'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    col_name_embs = model.embed_sentences(data['colName'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    col_types = data['colType'].tolist()
+
+    embedded_data = pd.DataFrame(
+        data=np.hstack((
+            np.reshape(dataset_names, (-1, 1)),
+            dataset_name_embs,
+            description_embs,
+            col_name_embs,
+            np.reshape(col_types, (-1, 1)),
+        )),
+        columns=['datasetName'] + ['emb_{}'.format(i) for i in range(3*emb_size)] + ['colType']
     )
-    with open('train_data_embedded.csv', 'w') as out_file:
-        csv_writer = csv.DictWriter(out_file, fieldnames=output_headers)
-        csv_writer.writeheader()
-        for in_row in input:
-            out_row_values = (
-                model.embed_sentence(in_row['datasetName'].lower()).tolist()[0] +
-                model.embed_sentence(in_row['description'].lower()).tolist()[0] +
-                model.embed_sentence(in_row['colName'].lower()).tolist()[0] +
-                [in_row['colType']]
-            )
 
-            out_row = {output_headers[i]: out_row_values[i] for i in range(len(output_headers))}
-            csv_writer.writerow(out_row)
+    with open(EMBEDDED_DATA_PATH, 'w') as f:
+        embedded_data.to_csv(f, index=False)
+
+    with open(EMBEDDED_SMALL_DATA_PATH, 'w') as f:
+        embedded_data.sample(n=1000, axis=0).to_csv(f, index=False)
+
+
+if __name__ == '__main__':
+    embed(sys.argv[1])

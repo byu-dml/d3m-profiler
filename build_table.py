@@ -1,6 +1,9 @@
 import sys, os, typing, json, logging, csv
 
 
+DATA_PATH = './data.csv'
+
+
 LOG_FILENAME = '/dev/null'
 logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -101,9 +104,13 @@ def build_table(dataset_path):
                         'colType': c_type
                     })
 
-    with open('train_data.csv', 'w', newline='') as csv_file:
+    with open(DATA_PATH, 'w', newline='') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=output_headers)
 
         writer.writeheader()
         for row in output:
             writer.writerow(row)
+
+
+if __name__ == '__main__':
+    build_table(sys.argv[1])
