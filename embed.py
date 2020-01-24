@@ -1,7 +1,7 @@
 import sent2vec, csv
 
 
-if __name__ == '__main__':
+def embed():
     model = sent2vec.Sent2vecModel()
     model.load_model('pretrained_embedding_model.bin')
     vocab = model.get_vocabulary()

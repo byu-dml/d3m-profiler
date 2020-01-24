@@ -1,7 +1,10 @@
 import sys, os, typing, json, logging, csv
 
 
+LOG_FILENAME = '/dev/null'
+logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
 
 def get_datasets(datasets_dir: str) -> typing.Dict[str, str]:
     if datasets_dir is None:
@@ -65,9 +68,9 @@ def human_readable_ify(in_str: str) -> str:
     return out_str
 
 
-if __name__ == '__main__':
+def build_table(dataset_path):
 
-    datasets = get_datasets(sys.argv[1])
+    datasets = get_datasets(dataset_path)
 
     output_headers = ['datasetName', 'description', 'colName', 'colType']
     output = []
