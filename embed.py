@@ -1,3 +1,6 @@
+import multiprocessing as mp
+import sys
+
 import numpy as np
 import pandas as pd
 import sent2vec
@@ -7,7 +10,7 @@ from build_table import DATA_PATH
 
 EMBEDDED_DATA_PATH = './embedded_data.csv'
 EMBEDDED_SMALL_DATA_PATH = './embedded_data_small.csv'
-_NUM_THREADS = 2
+_NUM_THREADS = mp.cpu_count()
 
 
 def embed(model_weights_path):
@@ -43,4 +46,4 @@ def embed(model_weights_path):
 
 
 if __name__ == '__main__':
-    embed(sys.argv[1])
+    embed(sys.argv[1])  # model weights path

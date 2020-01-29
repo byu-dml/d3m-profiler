@@ -1,9 +1,12 @@
-import sys, os, typing, json, logging, csv
+import csv
+import json
+import logging
+import os
+import sys
+import typing
 
 
 DATA_PATH = './data.csv'
-
-
 LOG_FILENAME = '/dev/null'
 logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 logger = logging.getLogger(__name__)

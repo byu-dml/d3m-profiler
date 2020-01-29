@@ -54,7 +54,7 @@ def run_model(model_constructor, dataset_names, X, y, n_jobs=None):
         The predictions of the model for each value of y when used as the test set in the cross validation splitting.
     """
 
-    n_folds = np.unique(dataset_names).shape[0]
+    n_folds = 10  # TODO: figure out memory error np.unique(dataset_names).shape[0]
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:
@@ -110,4 +110,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main(sys.argv[1:])  # number of cores
