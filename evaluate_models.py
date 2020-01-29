@@ -1,5 +1,6 @@
 import os
 import multiprocessing as mp
+import sys
 
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ def _run_fold(i, X_train, y_train, X_test, test_indices, model_constructor):
     return test_indices, y_hat
 
 
-def run_model(model_constructor, dataset_names, X, y):
+def run_model(model_constructor, dataset_names, X, y, n_jobs=None):
     """
     Runs models with grouped leave-one-out cross validation, grouped by dataset_names.
 
@@ -56,7 +57,10 @@ def run_model(model_constructor, dataset_names, X, y):
     n_folds = np.unique(dataset_names).shape[0]
     print('{} folds'.format(n_folds))
 
-    mp_pool = mp.Pool(max(mp.cpu_count() - 1, 1))
+    if n_jobs is None:
+        n_jobs = max(mp.cpu_count() - 1, 1)
+
+    mp_pool = mp.Pool(n_jobs)
     results = mp_pool.starmap(_run_fold, _group_kfold_generator(X.values, y.values, dataset_names.values, n_folds, model_constructor))
     mp_pool.close()
     mp_pool.join()
@@ -85,8 +89,14 @@ def save_results(save_dir, model_name, dataset_names, X, y, y_hat):
         data.to_csv(f)
 
 
-def main():
-    use_small_data = True
+def main(args):
+    if len(args) == 1:
+        n_jobs = int(args[0])
+    else:
+        n_jobs = None
+
+    use_small_data = True  # change to False to use all data
+
     print('loading data...')
     dataset_names, X, y = load_data(use_small_data)
 
@@ -94,10 +104,10 @@ def main():
 
     for model_class in [SupportVectorClassifier, RandomForestClassifier]:
         print('evaluating model {}'.format(model_class))
-        y_hat = run_model(model_class, dataset_names, X, y)
+        y_hat = run_model(model_class, dataset_names, X, y, n_jobs)
         print('{} accuracy: {}'.format(model_class, accuracy_score(y, y_hat)))
         save_results(save_dir, str(model_class).split('.')[-1], dataset_names, X, y, y_hat)
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
