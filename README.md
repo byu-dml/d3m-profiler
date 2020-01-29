@@ -11,6 +11,6 @@ Embed raw data with `python3 embed.py </path/to/sent2vec_weights.bin>`
 Run models with `python3 evaluate_models.py [<number of cores to use>]`
 
 * Set `use_small_data` manually in the code to switch between small and large data
-* Predictions saved to results[_small]/predictions_<model_name>.csv
+* Predictions saved to `results[_small]/predictions_<model_name>.csv`
 
 Score predictions with `python3 score_results.py results[_small]/<filename>.csv`
