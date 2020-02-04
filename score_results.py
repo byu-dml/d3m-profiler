@@ -1,4 +1,4 @@
-import sys
+import sys, os
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -15,21 +15,24 @@ if __name__ == '__main__':
     y_hat = results['colType_predicted']
     y_labels = y.unique()
 
-    print('y percentages:')
-    print(y.value_counts(normalize=True))
-    print()
-    print('Accuracy:', accuracy_score(y, y_hat))
-    print('F1 Macro:', f1_score(y, y_hat, average='macro'))
-    print('F1 Micro:', f1_score(y, y_hat, average='micro'))
+    with open(os.path.splitext(results_path)[0]+'_scores.txt', 'w') as f:
+        f.write('y percentages:\n')
+        f.write(str(y.value_counts(normalize=True))+'\n')
+        f.write('\n')
+        f.write('Accuracy:' + str(accuracy_score(y, y_hat)) + '\n')
+        f.write('F1 Macro:' + str(f1_score(y, y_hat, average='macro')) + '\n')
+        f.write('F1 Micro:' + str(f1_score(y, y_hat, average='micro')) + '\n')
 
     conf_mat_normalized = confusion_matrix(y, y_hat, labels=y_labels, normalize='true')
     disp = ConfusionMatrixDisplay(conf_mat_normalized, y_labels)
     disp.plot(xticks_rotation='vertical')
+    plt.savefig(os.path.splitext(results_path)[0]+'_ncm.png')
     plt.show()
     plt.close()
 
     conf_mat = confusion_matrix(y, y_hat, labels=y_labels)
     disp = ConfusionMatrixDisplay(conf_mat, y_labels)
     disp.plot(xticks_rotation='vertical')
+    plt.savefig(os.path.splitext(results_path)[0]+'_cm.png')
     plt.show()
     plt.close()
