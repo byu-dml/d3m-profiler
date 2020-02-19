@@ -2,3 +2,7 @@
 *.bin
 *.pyc
 results*/*
+
+
+# Distribution / packaging
+*.egg-info
