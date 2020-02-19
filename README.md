@@ -1,3 +1,10 @@
+# Installation
+
+To install:
+
+- Clone repo
+- Run the following (preferably in a virualenv): `python -m pip install -e path/to/repo/` 
+
 Install requirements.txt
 
 Download desired sent2vec weights [here](https://github.com/epfml/sent2vec#downloading-sent2vec-pre-trained-models)
