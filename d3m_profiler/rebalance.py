@@ -151,6 +151,27 @@ def configure_SMOTE(method: str):
         raise ValueError('\"{}\" is invalid argument for method parameter\n\tValid arguments: [\"smote\", \"borderline-1\", \"borderline-2\", \"svm\"]'.format(method))
 
 """
+Constructs a balanced DataFrame with correct labeling for synthetic data
+
+Returns
+-------
+rebalanced_df: pandas.DataFrame
+    The rebalanced DataFrame 
+"""
+def construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
+    datasets = original_df['datasetName']
+    
+    rebalanced_df = pd.DataFrame(data=X_resampled)
+    rebalanced_df[type_column] = Y_resampled
+    
+    num_synthetic = len(rebalanced_df.index) - len(original_df.index)
+    datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
+    
+    rebalanced_df['datasetName'] = datasets
+    
+    return rebalanced_df
+
+"""
 Rebalances a DataFrame using a SMOTE method.
 Valid arguments for "method" parameter are: ["smote", "borderline-1", "borderline-2", "svm"]
 
@@ -165,13 +186,26 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
     
     X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
     
-    rebalanced_df = pd.DataFrame(data=X_resampled)
-    rebalanced_df[type_column] = Y_resampled
-    return rebalanced_df
+    return construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
+    
+if __name__ == '__main__':
+    # df = pd.read_csv('data_openml.csv')
+    # df = pd.DataFrame(columns = ['datasetName', 'description', 'colName', 'colType'])
+    df = pd.read_csv('test_data.csv')
+    # df = df.iloc[range(10)]
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-1', 'colName': 'COLNAME1', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-2', 'colName': 'COLNAME2', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-3', 'colName': 'COLNAME3', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-4', 'colName': 'COLNAME4', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-5', 'colName': 'COLNAME5', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-6', 'colName': 'COLNAME6', 'colType': 'COLTYPE1'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-1', 'colName': 'COLNAME1', 'colType': 'COLTYPE2'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-2', 'colName': 'COLNAME2', 'colType': 'COLTYPE2'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-3', 'colName': 'COLNAME3', 'colType': 'COLTYPE2'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-4', 'colName': 'COLNAME4', 'colType': 'COLTYPE2'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-5', 'colName': 'COLNAME5', 'colType': 'COLTYPE2'}, ignore_index=True)
+    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-6', 'colName': 'COLNAME6', 'colType': 'COLTYPE2'}, ignore_index=True)
+    rebalanced_df = rebalance_SMOTE(df, 'colType', 'smote', 'torontobooks_unigrams.bin')
 
-# if __name__ == '__main__':
-#     df = pd.read_csv('data_openml.csv')
-#     rebalanced_df = rebalance_SMOTE(df, 'colType', 'smote', 'torontobooks_unigrams.bin')
-# 
-#     print(rebalanced_df)
+    print(rebalanced_df)
     
