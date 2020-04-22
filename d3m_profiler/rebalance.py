@@ -188,24 +188,3 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
     
     return construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
     
-if __name__ == '__main__':
-    # df = pd.read_csv('data_openml.csv')
-    # df = pd.DataFrame(columns = ['datasetName', 'description', 'colName', 'colType'])
-    df = pd.read_csv('test_data.csv')
-    # df = df.iloc[range(10)]
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-1', 'colName': 'COLNAME1', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-2', 'colName': 'COLNAME2', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-3', 'colName': 'COLNAME3', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-4', 'colName': 'COLNAME4', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-5', 'colName': 'COLNAME5', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME1', 'description': 'DESCRIPTION1-6', 'colName': 'COLNAME6', 'colType': 'COLTYPE1'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-1', 'colName': 'COLNAME1', 'colType': 'COLTYPE2'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-2', 'colName': 'COLNAME2', 'colType': 'COLTYPE2'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-3', 'colName': 'COLNAME3', 'colType': 'COLTYPE2'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-4', 'colName': 'COLNAME4', 'colType': 'COLTYPE2'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-5', 'colName': 'COLNAME5', 'colType': 'COLTYPE2'}, ignore_index=True)
-    df = df.append({'datasetName': 'DATASETNAME2', 'description': 'DESCRIPTION2-6', 'colName': 'COLNAME6', 'colType': 'COLTYPE2'}, ignore_index=True)
-    rebalanced_df = rebalance_SMOTE(df, 'colType', 'smote', 'torontobooks_unigrams.bin')
-
-    print(rebalanced_df)
-    
