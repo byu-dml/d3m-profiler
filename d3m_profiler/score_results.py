@@ -5,9 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, f1_score, accuracy_score
 
-
-if __name__ == '__main__':
-    results_path = sys.argv[1]
+def score_results(results_path: str):
     with open(results_path, 'r') as f:
         results = pd.read_csv(f)
 

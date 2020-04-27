@@ -151,6 +151,27 @@ def configure_SMOTE(method: str):
         raise ValueError('\"{}\" is invalid argument for method parameter\n\tValid arguments: [\"smote\", \"borderline-1\", \"borderline-2\", \"svm\"]'.format(method))
 
 """
+Constructs a balanced DataFrame with correct labeling for synthetic data
+
+Returns
+-------
+rebalanced_df: pandas.DataFrame
+    The rebalanced DataFrame 
+"""
+def construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
+    datasets = original_df['datasetName']
+    
+    rebalanced_df = pd.DataFrame(data=X_resampled)
+    rebalanced_df[type_column] = Y_resampled
+    
+    num_synthetic = len(rebalanced_df.index) - len(original_df.index)
+    datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
+    
+    rebalanced_df['datasetName'] = datasets
+    
+    return rebalanced_df
+
+"""
 Rebalances a DataFrame using a SMOTE method.
 Valid arguments for "method" parameter are: ["smote", "borderline-1", "borderline-2", "svm"]
 
@@ -165,13 +186,5 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
     
     X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
     
-    rebalanced_df = pd.DataFrame(data=X_resampled)
-    rebalanced_df[type_column] = Y_resampled
-    return rebalanced_df
-
-# if __name__ == '__main__':
-#     df = pd.read_csv('data_openml.csv')
-#     rebalanced_df = rebalance_SMOTE(df, 'colType', 'smote', 'torontobooks_unigrams.bin')
-# 
-#     print(rebalanced_df)
+    return construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
     

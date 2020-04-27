@@ -5,8 +5,7 @@ import numpy as np
 import pandas as pd
 import sent2vec
 
-from build_table import DATA_PATH
-
+from d3m_profiler.build_table import DATA_PATH
 
 EMBEDDED_DATA_PATH = './embedded_data.csv'
 EMBEDDED_SMALL_DATA_PATH = './embedded_data_small.csv'

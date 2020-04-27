@@ -11,7 +11,7 @@ from sklearn.model_selection import GroupKFold
 from sklearn.svm import SVC as SupportVectorClassifier
 from sklearn.ensemble import RandomForestClassifier
 
-from embed import EMBEDDED_DATA_PATH, EMBEDDED_SMALL_DATA_PATH
+from d3m_profiler.embed import EMBEDDED_DATA_PATH, EMBEDDED_SMALL_DATA_PATH
 
 
 def load_data(small=True):
@@ -54,7 +54,7 @@ def run_model(model_constructor, dataset_names, X, y, n_jobs=None):
         The predictions of the model for each value of y when used as the test set in the cross validation splitting.
     """
 
-    n_folds = 10  # TODO: figure out memory error np.unique(dataset_names).shape[0]
+    n_folds = len(dataset_names.unique())
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:
