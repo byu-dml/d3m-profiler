@@ -5,27 +5,42 @@ import numpy as np
 import pandas as pd
 import sent2vec
 
-from d3m_profiler.build_table import DATA_PATH
+_NUM_THREADS = (mp.cpu_count() - 1)
 
-EMBEDDED_DATA_PATH = './embedded_data.csv'
-EMBEDDED_SMALL_DATA_PATH = './embedded_data_small.csv'
-_NUM_THREADS = mp.cpu_count()
+"""
+Initializes a Sent2vecModel based on model weights
 
-
-def embed(model_weights_path):
+Returns
+-------
+tuple(model, emb_size): Tuple(sent2vec.Sent2vecModel, int)
+    The Sent2vecModel model and the embedding size.
+"""
+def initialize_model(model_weights_path: str) -> (sent2vec.Sent2vecModel, int):
     model = sent2vec.Sent2vecModel()
     model.load_model(model_weights_path)
     emb_size = model.get_emb_size()
+    
+    return model, emb_size
+    
+"""
+Embeds textual data in a DataFrame based on model weights and retains 
+group level of dataset name along with the response variable.
 
-    with open(DATA_PATH, 'r') as f:
-        data = pd.read_csv(f, na_filter=False, dtype={'datasetName': str, 'description': str, 'colName': str, 'colType': str})
-
-    dataset_names = data['datasetName'].tolist()
-    dataset_name_embs = model.embed_sentences(data['datasetName'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    description_embs = model.embed_sentences(data['description'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    col_name_embs = model.embed_sentences(data['colName'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    col_types = data['colType'].tolist()
-
+Returns
+-------
+embedded_data: pandas.DataFrame
+    The embedded DataFrame along with the group level dataset name and response
+    variable.
+"""
+def embed(df: pd.DataFrame, type_column: str, model_weights_path: str) -> pd.DataFrame:
+    model, emb_size = initialize_model(model_weights_path)
+    
+    dataset_names = df['datasetName'].tolist()
+    dataset_name_embs = model.embed_sentences(df['datasetName'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    description_embs = model.embed_sentences(df['description'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    col_name_embs = model.embed_sentences(df['colName'].str.lower(), num_threads=_NUM_THREADS).tolist()
+    col_types = df[type_column].tolist()
+    
     embedded_data = pd.DataFrame(
         data=np.hstack((
             np.reshape(dataset_names, (-1, 1)),
@@ -34,15 +49,7 @@ def embed(model_weights_path):
             col_name_embs,
             np.reshape(col_types, (-1, 1)),
         )),
-        columns=['datasetName'] + ['emb_{}'.format(i) for i in range(3*emb_size)] + ['colType']
+        columns=['datasetName'] + ['emb_{}'.format(i) for i in range(3*emb_size)] + [type_column]
     )
-
-    with open(EMBEDDED_DATA_PATH, 'w') as f:
-        embedded_data.to_csv(f, index=False)
-
-    with open(EMBEDDED_SMALL_DATA_PATH, 'w') as f:
-        embedded_data.sample(n=1000, axis=0).to_csv(f, index=False)
-
-
-if __name__ == '__main__':
-    embed(sys.argv[1])  # model weights path
+    
+    return embedded_data
