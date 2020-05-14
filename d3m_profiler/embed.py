@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import pickle as pk
 import sys
 
 import numpy as np
@@ -34,22 +35,15 @@ embedded_data: pandas.DataFrame
 """
 def embed(df: pd.DataFrame, type_column: str, model_weights_path: str) -> pd.DataFrame:
     model, emb_size = initialize_model(model_weights_path)
-    
-    dataset_names = df['datasetName'].tolist()
-    dataset_name_embs = model.embed_sentences(df['datasetName'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    description_embs = model.embed_sentences(df['description'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    col_name_embs = model.embed_sentences(df['colName'].str.lower(), num_threads=_NUM_THREADS).tolist()
-    col_types = df[type_column].tolist()
-    
-    embedded_data = pd.DataFrame(
-        data=np.hstack((
-            np.reshape(dataset_names, (-1, 1)),
-            dataset_name_embs,
-            description_embs,
-            col_name_embs,
-            np.reshape(col_types, (-1, 1)),
-        )),
-        columns=['datasetName'] + ['emb_{}'.format(i) for i in range(3*emb_size)] + [type_column]
-    )
-    
-    return embedded_data
+
+    dataset_names = df['datasetName']
+    dataset_name_embs = model.embed_sentences(df['datasetName'].str.lower(), num_threads=_NUM_THREADS)
+    description_embs = model.embed_sentences(df['description'].str.lower(), num_threads=_NUM_THREADS)
+    col_name_embs = model.embed_sentences(df['colName'].str.lower(), num_threads=_NUM_THREADS)
+    col_types = df[type_column]
+
+    group_type_df = pd.DataFrame({'datasetName': dataset_names, 'colType': col_types})
+    embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*emb_size)])
+
+    return pd.concat([group_type_df, embeddings_df], axis=1)
+

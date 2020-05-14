@@ -23,6 +23,7 @@ tuple(i, X[train_indices], y[train_indices], X[test_indices], test_indices, *arg
     Arguments necessary for the _run_fold function call
 """
 def _group_kfold_generator(X: pd.DataFrame, y: pd.Series, groups: np.ndarray, n_folds: int, *args):
+    print('group_kfold_generator')
     group_kfold = GroupKFold(n_splits=n_folds)
     for i, (train_indices, test_indices) in enumerate(group_kfold.split(X, y, groups)):
         yield (i, X[train_indices], y[train_indices], X[test_indices], test_indices, *args)
@@ -52,6 +53,7 @@ y_hat: pandas.Series
 """
 def _run_model(model_constructor, dataset_names: pd.Series, X: pd.DataFrame, y: pd.DataFrame, n_jobs: int=None):
     n_folds = len(dataset_names.unique())
+    n_folds = 2
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:

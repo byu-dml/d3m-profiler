@@ -95,11 +95,12 @@ Returns
 sm: SMOTE or BorderlineSMOTE1 or BorderlineSMOTE2 or SVMSMOTE
     The configured, specific SMOTE object
 """
-def _configure_SMOTE(method: str):
+def _configure_SMOTE(method: str, **opts):
+    k_neighbors = opts.get('k_neighbors', 5)
     if (method == 'smote'):
-        return SMOTE(sampling_strategy='not majority', random_state=42, n_jobs=_NUM_THREADS)
+        return SMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS)
     elif (method in ['borderline-1', 'borderline-2']):
-        return BorderlineSMOTE(sampling_strategy='not majority', random_state=42, n_jobs=_NUM_THREADS, kind=method)
+        return BorderlineSMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS, kind=method)
     elif (method == 'svm'):
         raise NotImplementedError('svmSMOTE not implemented')
     else:
@@ -138,7 +139,11 @@ rebalanced_df: pandas.DataFrame
 """
 def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
     embedded_df = embed(df, type_column, model_weights_path)
-    sm = _configure_SMOTE(method)
+
+    k_neighbors = (embedded_df[type_column].value_counts().min() - 1)
+    assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+
+    sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
     
     X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
     
