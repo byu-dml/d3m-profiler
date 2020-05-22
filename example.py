@@ -2,6 +2,7 @@ import numpy as np
 import multiprocessing as mp
 import pathlib as pl
 import pandas as pd
+import pickle
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC as SupportVectorClassifier
@@ -33,7 +34,8 @@ model_weights_path = 'torontobooks_unigrams.bin'
 open_d3m_file = 'data/open_d3m_data.csv'
 closed_d3m_file = 'data/closed_d3m_data.csv'
 
-files = [open_d3m_file, closed_d3m_file]
+files = [open_d3m_file]
+#files = [open_d3m_file, closed_d3m_file]
 #files = [closed_d3m_file, open_d3m_file]
 
 for _file in files:
@@ -85,6 +87,9 @@ for _file in files:
             model = model_class()
             print('fitting model...')
             model.fit(xtrain, ytrain)
+            if (balanced):
+                filename = 'RF_public_model.sav'
+                pickle.dump(model, open(filename, 'wb'))
             yhat = model.predict(xtest)
 
             accuracy = accuracy_score(ytest, yhat)
@@ -95,8 +100,6 @@ for _file in files:
             results = results.append({'data_collection': data_collection, 'classifier': classifier, 'balanced': balanced, 'accuracy_score': accuracy, 
                 'f1_score_micro': f1_micro, 'f1_score_macro': f1_macro, 'f1_score_weighted': f1_weighted}, ignore_index=True)
 
-            balanced_str = 'balanced' if balanced else 'notBalanced'
-            _save_results('results', data_collection + '_' + balanced_str + '_' + classifier, df['datasetName'], xtrain.append(xtest), ytrain.append(ytest), pd.Series(yhat))
 
 print(results)
 results.to_csv('data/results_2.csv', index=False)
