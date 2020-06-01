@@ -8,6 +8,7 @@ from d3m_profiler.build_table import build_table
 
 
 #this file is already formatted using the build table function in the profiler
+
 #these file paths work specifically on my computer and need to be the paths corresponding to your file system
 input_data_file = "../data_files/data/sample.csv"
 #weights for the word embedding
