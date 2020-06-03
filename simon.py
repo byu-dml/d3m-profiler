@@ -23,7 +23,7 @@ def main(checkpoint, nb_epoch, batch_size, execution_config):
     if not os.path.isdir(CHECKPOINT_DIR):
         os.makedirs(CHECKPOINT_DIR)
 
-    raw_data, header, categories = get_raw_data(get_datasets(DATASET_DIR))
+    raw_data, header, categories = parse_datasets(get_datasets(DATASET_DIR))
     print(f'Categories: {categories}', flush=True)
 
     start = time.time()
@@ -67,7 +67,7 @@ def evaluate_model(model, data):
     print(f'F1 weighted: {f1_score(data.y_test, y_pred, average="weighted")}')
 
 
-def get_raw_data(datasets):
+def parse_datasets(datasets):
     raw_data, header, categories = [], [], []
     count_columns = 0
     for dataset_id, dataset_doc_path in datasets.items():
