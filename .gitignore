@@ -3,6 +3,12 @@
 *.pyc
 results*/*
 
+# Visual Studio Code environment
+.vscode/
 
 # Distribution / packaging
 *.egg-info
+
+# Simon Baseline
+unencoded_chars.json
+logs/*
