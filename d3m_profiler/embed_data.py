@@ -1,6 +1,8 @@
 import multiprocessing as mp
-import pickle as pk
+import pickle
 import sys
+from sentence_transformers import SentenceTransformer
+from nltk.tokenize import sent_tokenize
 
 import numpy as np
 import pandas as pd
@@ -16,12 +18,10 @@ Returns
 tuple(model, emb_size): Tuple(sent2vec.Sent2vecModel, int)
     The Sent2vecModel model and the embedding size.
 """
-def initialize_model(model_weights_path: str) -> (sent2vec.Sent2vecModel, int):
-    model = sent2vec.Sent2vecModel()
-    model.load_model(model_weights_path)
-    emb_size = model.get_emb_size()
-    
-    return model, emb_size
+def initialize_model(model_weights_path: str):
+    model = SentenceTransformer(model_weights_path) 
+       
+    return model
     
 """
 Embeds textual data in a DataFrame based on model weights and retains 
@@ -34,14 +34,15 @@ embedded_data: pandas.DataFrame
     variable.
 """
 def embed(df: pd.DataFrame, model_weights_path: str) -> pd.DataFrame:
-    model, emb_size = initialize_model(model_weights_path)
+    model = initialize_model(model_weights_path)
 
     dataset_names = df['datasetName']
-    dataset_name_embs = model.embed_sentences(df['datasetName'].str.lower(), num_threads=_NUM_THREADS)
-    description_embs = model.embed_sentences(df['description'].str.lower(), num_threads=_NUM_THREADS)
-    col_name_embs = model.embed_sentences(df['colName'].str.lower(), num_threads=_NUM_THREADS)
+    dataset_name_embs = model.encode([df['datasetName'].lower()])
+    print(np.shape(dataset_name_embs))
+    description_embs = model.encode([df['description'].lower()])
+    print(np.shape(description_embs))
+    col_name_embs = model.encode([df['colName'].lower()])
+    print(np.shape(col_name_embs))
+    embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*len(dataset_name_embs[0]))])
 
-    group_type_df = pd.DataFrame({'datasetName': dataset_names})
-    embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*emb_size)])
-
-    return pd.concat([group_type_df, embeddings_df], axis=1)
+    return embeddings_df
