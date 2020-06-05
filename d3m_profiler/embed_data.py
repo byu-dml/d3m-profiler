@@ -33,16 +33,17 @@ embedded_data: pandas.DataFrame
     The embedded DataFrame along with the group level dataset name and response
     variable.
 """
-def embed(df: pd.DataFrame, model_weights_path: str) -> pd.DataFrame:
+def embed(df: pd.DataFrame, type_column: str, model_weights_path: str) -> pd.DataFrame:
     model = initialize_model(model_weights_path)
 
     dataset_names = df['datasetName']
-    dataset_name_embs = model.encode([df['datasetName'].lower()])
-    print(np.shape(dataset_name_embs))
-    description_embs = model.encode([df['description'].lower()])
-    print(np.shape(description_embs))
-    col_name_embs = model.encode([df['colName'].lower()])
-    print(np.shape(col_name_embs))
+    dataset_name_embs = model.encode(df['datasetName'].str.lower())
+    #print(np.shape(dataset_name_embs))
+    description_embs = model.encode(df['description'].str.lower())
+    #print(np.shape(description_embs))
+    col_name_embs = model.encode(df['colName'].str.lower())
+    #print(np.shape(col_name_embs))
+    group_type_df = pd.DataFrame({'datasetName': dataset_names, 'colType': col_types})
     embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*len(dataset_name_embs[0]))])
 
-    return embeddings_df
+    return return pd.concat([group_type_df, embeddings_df], axis=1)

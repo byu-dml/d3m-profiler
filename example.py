@@ -12,7 +12,7 @@ from sklearn.svm import SVC as SupportVectorClassifier
 
 from d3m_profiler import rebalance, score_results
 from d3m_profiler.evaluate_models import run_models, _save_results
-from d3m_profiler.embed import embed
+from d3m_profiler.embed_data import embed
 
 _NUM_THREADS = mp.cpu_count()
 
@@ -29,12 +29,12 @@ results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'ac
 #files = [closed_unbal_file, closed_bal_file, open_unbal_file, open_bal_file]
 
 type_column = 'colType'
-model_weights_path = 'torontobooks_unigrams.bin'
+model_weights_path = '../data_files/distilbert-base-nli-stsb-mean-tokens'
 
-open_d3m_file = 'data/open_d3m_data.csv'
-closed_d3m_file = 'data/closed_d3m_data.csv'
+open_d3m_file = '../data_files/data/open_d3m_data.csv'
+closed_d3m_file = '../data_files/data/closed_d3m_data.csv'
 
-files = [open_d3m_file]
+files = [closed_d3m_file]
 #files = [open_d3m_file, closed_d3m_file]
 #files = [closed_d3m_file, open_d3m_file]
 
