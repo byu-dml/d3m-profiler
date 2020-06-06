@@ -29,7 +29,7 @@ results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'ac
 #files = [closed_unbal_file, closed_bal_file, open_unbal_file, open_bal_file]
 
 type_column = 'colType'
-model_weights_path = '../data_files/distilbert-base-nli-stsb-mean-tokens'
+model_weights_path = '../data_files/distilbert-base-nli'
 
 open_d3m_file = '../data_files/data/open_d3m_data.csv'
 closed_d3m_file = '../data_files/data/closed_d3m_data.csv'
@@ -44,7 +44,6 @@ for _file in files:
 
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
-
     dfs = [embed(orig_df, type_column, model_weights_path)]
 
     class_counts = orig_df[type_column].value_counts().values
@@ -53,6 +52,9 @@ for _file in files:
     if (not balanced):
         print('rebalancing {} data collection'.format(data_collection))
         rebal_df = rebalance.rebalance_SMOTE(orig_df, type_column, 'smote', model_weights_path)
+        print(dfs)
+        rebal_df = rebal_df.drop(['datasetName'],axis=1)
+        print(rebal_df)
         dfs.append(rebal_df)
 
     for df in dfs:
@@ -62,23 +64,11 @@ for _file in files:
 
         xtrain, xtest, ytrain, ytest = None, None, None, None
 
-        if (balanced):
-            X_syn = df[df['datasetName'].eq('SYNTHETIC')].drop(['datasetName', type_column], axis=1)
-            y_syn = df[df['datasetName'].eq('SYNTHETIC')][type_column]
-
-            X_organ = df[df['datasetName'] != 'SYNTHETIC'].drop(['datasetName', type_column], axis=1)
-            y_organ = df[df['datasetName'] != 'SYNTHETIC'][type_column]
-
-            xtrain, xtest, ytrain, ytest = train_test_split(X_organ, y_organ, test_size=0.33)
-
-            xtrain = xtrain.append(X_syn)
-            ytrain = ytrain.append(y_syn)
-        else:
-            X = df.drop(['datasetName', type_column], axis=1)
-            y = df[type_column]
-            dataset_names = df['datasetName']
+        X = df.drop([type_column], axis=1)
+        y = df[type_column]
+        #dataset_names = df['datasetName']
             
-            xtrain, xtest, ytrain, ytest = train_test_split(X, y, test_size=0.33)
+        xtrain, xtest, ytrain, ytest = train_test_split(X, y, test_size=0.33)
 
         #for model_class in [SupportVectorClassifier, RandomForestClassifier]:
         for model_class in [RandomForestClassifier]:
@@ -102,4 +92,4 @@ for _file in files:
 
 
 print(results)
-results.to_csv('data/results_2.csv', index=False)
+results.to_csv('../data_files/results_2.csv', index=False)
