@@ -88,7 +88,7 @@ for _file in files:
             print('fitting model...')
             model.fit(xtrain, ytrain)
             if (balanced):
-                filename = 'RF_public_model.sav'
+                filename = 'public_model.sav'
                 pickle.dump(model, open(filename, 'wb'))
             yhat = model.predict(xtest)
 
