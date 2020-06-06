@@ -5,11 +5,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import GroupKFold
-
-from sklearn.svm import SVC as SupportVectorClassifier
-from sklearn.ensemble import RandomForestClassifier
 
 _NUM_THREADS = (mp.cpu_count() - 1)
 
@@ -53,7 +50,6 @@ y_hat: pandas.Series
 """
 def _run_model(model_constructor, dataset_names: pd.Series, X: pd.DataFrame, y: pd.DataFrame, n_jobs: int=None):
     n_folds = len(dataset_names.unique())
-    n_folds = 2
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:
@@ -101,11 +97,22 @@ Returns
 -------
 None
 """
-def run_models(X: pd.DataFrame, y: pd.Series, dataset_names: pd.Series, type_column: str):
-    save_dir = 'results'
+def run_models(X: pd.DataFrame, y: pd.Series, dataset_names: pd.Series, type_column: str, classifiers: list):
+    save_dir = '../result_files'
+    results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
+    columns = ['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted']
 
-    for model_class in [SupportVectorClassifier, RandomForestClassifier]:
+    for model_class in classifiers:
         print('evaluating model: {}'.format(model_class.__name__))
         y_hat = _run_model(model_class, dataset_names, X, y, _NUM_THREADS)
-        print('{} accuracy: {}'.format(model_class, accuracy_score(y, y_hat)))
-        _save_results(save_dir, model_class.__name__, dataset_names, X, y, y_hat)
+        #get the scores
+        accuracy = accuracy_score(y,y_hat)
+        f1_micro = f1_score(y, y_hat, average='micro')
+        f1_macro = f1_score(y, y_hat, average='macro')
+        f1_weighted = f1_score(y, y_hat, average='weighted')
+        results = results.append(pd.DataFrame(data = [[model_class.__name__, accuracy, f1_micro, f1_macro, f1_weighted]],columns = columns),ignore_index=True)
+        print(results)
+        #_save_results(save_dir, model_class.__name__, dataset_names, X, y, y_hat)
+    #now save the pandas results to a csv    
+    results.to_csv('../result_files/results_all_models.csv', index=False)    
+        
