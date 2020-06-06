@@ -6,7 +6,7 @@ import sent2vec
 
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE, SVMSMOTE
 
-from d3m_profiler.embed import embed
+from d3m_profiler.embed_data import embed
 
 _NUM_THREADS = (mp.cpu_count() - 1)
 
@@ -145,7 +145,7 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
 
     sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
     
-    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
+    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop([type_column], axis=1), embedded_df[type_column])
     
     return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
     
