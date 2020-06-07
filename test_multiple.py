@@ -41,7 +41,7 @@ for _file in files:
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
     #get a random smaller sample from orig_df so that run_models will work without overflow
-    orig_df = orig_df.sample(frac=0.5).reset_index()
+    orig_df = orig_df.sample(frac=0.15).reset_index()
     
     dfs = [embed(orig_df, type_column, model_weights_path)]
 
