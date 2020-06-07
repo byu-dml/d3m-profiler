@@ -43,7 +43,7 @@ for _file in files:
     #get a random smaller sample from orig_df so that run_models will work without overflow
     orig_df = orig_df.sample(frac=0.15).reset_index()
     
-    dfs = [embed(orig_df, type_column, model_weights_path)]
+    dfs = embed(orig_df, type_column, model_weights_path)
 
     class_counts = orig_df[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
