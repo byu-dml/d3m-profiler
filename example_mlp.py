@@ -3,9 +3,9 @@ import multiprocessing as mp
 import pathlib as pl
 import pandas as pd
 import pickle
-
+from sklearn.naive_bayes import GaussianNB as GaussianNB
 from sklearn.neural_network import MLPClassifier as MLPClassifier
-
+from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 
@@ -28,7 +28,7 @@ for _file in files:
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
 
-    dfs = embed(orig_df, type_column, model_weights_path)
+    #dfs = embed(orig_df, type_column, model_weights_path)
 
     class_counts = orig_df[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
@@ -60,16 +60,16 @@ for _file in files:
         y = dfs[type_column]
         dataset_names = dfs['datasetName']
             
-        xtrain, xtest, ytrain, ytest = train_test_split(X, y, test_size=0.33)
+        xtrain, xtest, ytrain, ytest = train_test_split(X,y,stratify=y,test_size=0.33)
 
-    for model_class in [MLPClassifier]:
+    for model_class in [MLPClassifier,RandomForestClassifier,GaussianNB]:
         classifier = model_class.__name__
         print('evaluating model: {}'.format(classifier))
         model = model_class()
         print('fitting model...')
         model.fit(xtrain, ytrain)
         if (balanced):
-            filename = 'mlp_public_model.sav'
+            filename = model_class.__name__+'_public_model.sav'
             pickle.dump(model, open(filename, 'wb'))
         yhat = model.predict(xtest)
 
@@ -82,5 +82,5 @@ for _file in files:
             'f1_score_micro': f1_micro, 'f1_score_macro': f1_macro, 'f1_score_weighted': f1_weighted}, ignore_index=True)
 
 
-print(results)
-results.to_csv('data/results_mlp.csv', index=False)
+    print(results)
+    results.to_csv('../result_files/results_training.csv', index=False)
