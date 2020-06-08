@@ -41,30 +41,24 @@ for _file in files:
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
     #get a random smaller sample from orig_df so that run_models will work without overflow
-    orig_df = orig_df.sample(frac=0.15).reset_index()
-    
-    dfs = embed(orig_df, type_column, model_weights_path)
+    orig_df = orig_df.sample(frac=0.20).reset_index()
+    orig_df = orig_df.drop(['datasetName','description'],axis=1)
 
     class_counts = orig_df[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
  
-
-    if (not balanced):
-        print('rebalancing {} data collection'.format(data_collection))
-        dfs = rebalance.rebalance_SMOTE(orig_df, type_column, 'smote', model_weights_path)
-        
-    else:
-        dfs = [embed(orig_df, type_column, model_weights_path)]
+    print('rebalancing {} data collection'.format(data_collection))
+    dfs = rebalance.rebalance_SMOTE(orig_df, type_column, 'smote', model_weights_path)
 
     class_counts = dfs[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
     print(balanced)
 
     #get the needed info to run all the models
-    X = dfs.drop(['datasetName', type_column], axis=1)
+    X = dfs.drop([type_column,'colName'], axis=1)
     y = dfs[type_column]
-    dataset_names = dfs['datasetName']
+    column_names = dfs['colName']
         
     #run models on data to determine the best classification model
-    run_models(X,y,dataset_names,type_column,classifiers)
+    run_models(X,y,column_names,type_column,classifiers)
     

@@ -114,7 +114,7 @@ rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
 def _construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
-    datasets = original_df['datasetName']
+    datasets = original_df['colName']
     
     rebalanced_df = pd.DataFrame(data=X_resampled)
     rebalanced_df[type_column] = Y_resampled
@@ -122,7 +122,7 @@ def _construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFram
     num_synthetic = len(rebalanced_df.index) - len(original_df.index)
     datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
     
-    rebalanced_df['datasetName'] = datasets
+    rebalanced_df['colName'] = datasets
     
     return rebalanced_df
 
@@ -144,7 +144,7 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
 
     sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
     
-    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop([type_column], axis=1), embedded_df[type_column])
+    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop([type_column,'colName'], axis=1), embedded_df[type_column])
     
     return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
     

@@ -48,16 +48,15 @@ Returns
 y_hat: pandas.Series
     The predictions of the model for each value of y when used as the test set in the cross validation splitting.
 """
-def _run_model(model_constructor, dataset_names: pd.Series, X: pd.DataFrame, y: pd.DataFrame, n_jobs: int=None):
-    #n_folds = len(dataset_names.unique())
-    n_folds = 15
+def _run_model(model_constructor, col_names: pd.Series, X: pd.DataFrame, y: pd.DataFrame, n_jobs: int=None):
+    n_folds = len(col_names.unique())
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:
         n_jobs = max(mp.cpu_count() - 1, 1)
 
     mp_pool = mp.Pool(n_jobs)
-    results = mp_pool.starmap(_run_fold, _group_kfold_generator(X.values, y.values, dataset_names.values, n_folds, model_constructor))
+    results = mp_pool.starmap(_run_fold, _group_kfold_generator(X.values, y.values, col_names.values, n_folds, model_constructor))
     mp_pool.close()
     mp_pool.join()
 
@@ -75,9 +74,9 @@ Returns
 -------
 None
 """
-def _save_results(save_dir: str, model_name: str, dataset_names: pd.Series, X: pd.DataFrame, y: pd.Series, y_hat: pd.Series):
+def _save_results(save_dir: str, model_name: str, col_names: pd.Series, X: pd.DataFrame, y: pd.Series, y_hat: pd.Series):
     data = pd.DataFrame({
-        'datasetName': dataset_names.values,
+        'colName': col_names.values,
         'colType': y.values,
         'colType_predicted': y_hat.values,
     })
@@ -98,22 +97,21 @@ Returns
 -------
 None
 """
-def run_models(X: pd.DataFrame, y: pd.Series, dataset_names: pd.Series, type_column: str, classifiers: list):
+def run_models(X: pd.DataFrame, y: pd.Series, col_names: pd.Series, type_column: str, classifiers: list):
     save_dir = '../result_files'
     results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
     columns = ['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted']
 
     for model_class in classifiers:
         print('evaluating model: {}'.format(model_class.__name__))
-        y_hat = _run_model(model_class, dataset_names, X, y, _NUM_THREADS)
+        y_hat = _run_model(model_class, col_names, X, y, _NUM_THREADS)
         #get the scores
         accuracy = accuracy_score(y,y_hat)
         f1_micro = f1_score(y, y_hat, average='micro')
         f1_macro = f1_score(y, y_hat, average='macro')
         f1_weighted = f1_score(y, y_hat, average='weighted')
         results = results.append(pd.DataFrame(data = [[model_class.__name__, accuracy, f1_micro, f1_macro, f1_weighted]],columns = columns),ignore_index=True)
-        print(results)
-        #_save_results(save_dir, model_class.__name__, dataset_names, X, y, y_hat)
-    #now save the pandas results to a csv    
+    
+    print(results)
     results.to_csv('../result_files/results_all_models.csv', index=False)    
         
