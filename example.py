@@ -5,10 +5,8 @@ import pandas as pd
 import pickle
 import sys
 from sentence_transformers import SentenceTransformer
-
-
+from imblearn.over_sampling import SMOTE
 from d3m_profiler import rebalance, score_results
-from d3m_profiler.embed import embed
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import accuracy_score, f1_score
@@ -22,7 +20,7 @@ model_weights_path = '../../data_files/distilbert-base-nli'
 model = RandomForestClassifier(max_depth=10)
 
 closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
-
+weight_model = SentenceTransformer(model_weights_path)
 _file = closed_d3m_file
 
 orig_df = pd.read_csv(_file)
@@ -30,17 +28,26 @@ orig_df = orig_df.applymap(str)
 
 class_counts = orig_df[type_column].value_counts().values
 balanced = len(set(class_counts)) == 1
-data_collection = _file.split('/')[1]
 
-if (not balanced):
-    print('rebalancing {} data collection'.format(data_collection))
-    rebal_df = rebalance.rebalance_SMOTE(orig_df, type_column, 'smote', model_weights_path)
-    df = rebal_df
-else:
-    df = embed(orig_df, type_column, model_weights_path)
 
+print("Embedding Data")
+print("Embedding datasetName...")
+dataset_name_embs = weight_model.encode(orig_df['datasetName'].str.lower())
+print("Embedding description...")
+description_embs = weight_model.encode(orig_df['description'].str.lower())
+print("Embedding column name...")
+col_name_embs = weight_model.encode(orig_df['colName'].str.lower())
+
+group_type_df = pd.DataFrame({'datasetName': orig_df['datasetName'], 'colType': orig_df['colType']})
+print("Building embedded dataframe...")
+embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*len(col_name_embs[0]))])
+df = pd.concat([group_type_df, embeddings_df], axis=1)
+print("Saving Embeddings...")
 df.to_csv('embedded_d3m_closed.csv',index=False)        
-
+#balance the data
+#print("Balancing data...")
+#smote = SMOTE(k_neighbors=k_neighbors)
+#X_bal, y_bal = smote.fit_resample(X_embed,y)
 """        
 class_counts = df[type_column].value_counts().values
 balanced = len(set(class_counts)) == 1
