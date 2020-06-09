@@ -2,7 +2,6 @@ import multiprocessing as mp
 
 import numpy as np
 import pandas as pd
-import sent2vec
 
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE, SVMSMOTE
 
