@@ -1,0 +1,4 @@
+model,accuracy_score,f1_score_micro,f1_score_macro,f1_score_weighted
+GaussianNB_public_model.sav,0.81598,0.81598,0.32719,0.86636
+MLPClassifier_public_model.sav,0.94624,0.94624,0.46992,0.95201
+RandomForestClassifier_public_model.sav,0.95179,0.95179,0.47664,0.9562
