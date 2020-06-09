@@ -18,10 +18,10 @@ from d3m_profiler import rebalance
 results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
 type_column = 'colType'
-model_weights_path = '../data_files/distilbert-base-nli'
+model_weights_path = '../../data_files/distilbert-base-nli'
 model = RandomForestClassifier(max_depth=10)
 
-closed_d3m_file = '../data_files/data/sample.csv'
+closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
 
 _file = closed_d3m_file
 
