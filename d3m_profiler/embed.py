@@ -34,9 +34,9 @@ def embed(df: pd.DataFrame, type_column: str, model_weights_path: str) -> pd.Dat
     model, emb_size = initialize_model(model_weights_path)
 
     dataset_names = df['datasetName']
-    dataset_name_embs = model.encode(df['datasetName'].str.lower())
-    description_embs = model.encode(df['description'].str.lower())
-    col_name_embs = model.encode(df['colName'].str.lower())
+    dataset_name_embs = model.encode(df['datasetName'].to_numpy())
+    description_embs = model.encode(df['description'].to_numpy())
+    col_name_embs = model.encode(df['colName'].to_numpy())
     col_types = df[type_column]
 
     group_type_df = pd.DataFrame({'datasetName': dataset_names, 'colType': col_types})
