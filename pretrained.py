@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score
 #this file is already formatted using the build table function in the profiler
 
 #these file paths work specifically on my computer and need to be the paths corresponding to your file system
-input_data_file = "../data_files/data/open_data.csv"
+input_data_file = "../data_files/data/open_d3m_data.csv"
 #input_data_file = "../data_files/data/sample.csv"
 #weights for the word embedding
 model_weights_path = '../data_files/distilbert-base-nli'
@@ -20,7 +20,7 @@ model_weights_path = '../data_files/distilbert-base-nli'
 results = pd.DataFrame(columns=['model', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 columns = ['model', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted']
 
-models = ['GaussianNB_public_model.sav','MLPClassifer_public_model.sav','RandomForestClassifier_public_model.sav']
+models = ['GaussianNB_public_model.sav','MLPClassifier_public_model.sav','RandomForestClassifier_public_model.sav']
 #get the csv info from the input data
 df_in_data = pd.read_csv(input_data_file)
 df_in_data = df_in_data.applymap(str)
