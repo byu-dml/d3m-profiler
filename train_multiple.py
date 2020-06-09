@@ -51,14 +51,15 @@ for _file in files:
         X_organ = dfs[dfs['colName'] != 'SYNTHETIC'].drop(['colName', type_column], axis=1)
         y_organ = dfs[dfs['colName'] != 'SYNTHETIC'][type_column]
 
-        xtrain, xtest, ytrain, ytest = train_test_split(X_organ, y_organ, test_size=0.33)
-
+        xtrain, xtest, ytrain, ytest = train_test_split(X_organ, y_organ,stratify=y_organ, test_size=0.33)
+        print(X_organ)
+        print(X_syn)
         xtrain = xtrain.append(X_syn)
         ytrain = ytrain.append(y_syn)
     else:
         X = dfs.drop(['colName', type_column], axis=1)
         y = dfs[type_column]
-        column_names = dfs['columnName']
+        column_names = dfs['colName']
             
         xtrain, xtest, ytrain, ytest = train_test_split(X,y,stratify=y,test_size=0.33)
 

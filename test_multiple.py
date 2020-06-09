@@ -41,9 +41,7 @@ for _file in files:
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
     #get a random smaller sample from orig_df so that run_models will work without overflow
-    orig_df = orig_df.sample(frac=0.20).reset_index()
     orig_df = orig_df.drop(['datasetName','description'],axis=1)
-
     class_counts = orig_df[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
  
@@ -53,7 +51,9 @@ for _file in files:
     class_counts = dfs[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
     print(balanced)
-
+    dfs = dfs.sample(frac=0.20).reset_index()
+    
+    print(dfs)
     #get the needed info to run all the models
     X = dfs.drop([type_column,'colName'], axis=1)
     y = dfs[type_column]

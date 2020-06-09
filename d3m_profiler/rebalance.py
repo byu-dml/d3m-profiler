@@ -138,7 +138,7 @@ rebalanced_df: pandas.DataFrame
 """
 def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
     embedded_df = embed(df, type_column, model_weights_path)
-
+    print(embedded_df[type_column].value_counts())
     k_neighbors = (embedded_df[type_column].value_counts().min() - 1)
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
 

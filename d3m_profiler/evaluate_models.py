@@ -49,7 +49,8 @@ y_hat: pandas.Series
     The predictions of the model for each value of y when used as the test set in the cross validation splitting.
 """
 def _run_model(model_constructor, col_names: pd.Series, X: pd.DataFrame, y: pd.DataFrame, n_jobs: int=None):
-    n_folds = len(col_names.unique())
+    #n_folds = len(col_names.unique())
+    n_folds = 100
     print('{} folds'.format(n_folds))
 
     if n_jobs is None:
