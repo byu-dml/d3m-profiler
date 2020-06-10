@@ -15,6 +15,7 @@ data_path = 'closed_d3m_data.csv'
 embed_model_path = 'distilbert-base-nli-stsb-mean-tokens'
 default_k_neighbors = 3
 model_save_path = './quick_model.bin'
+random_state=42
 
 # load data
 data = pd.read_csv(data_path)#.iloc[:1000]
@@ -28,10 +29,14 @@ def sep_X_and_y(data):
     y = data['colType']
     return X, y
 
-scores = []
+f1_macros = []
+f1_micros = []
+f1_weighted = []
+conf_matrices = []
+conf_matrices_norm = []
 
 # split data
-splitter = GroupShuffleSplit(n_splits=2, train_size=0.66, random_state=42)
+splitter = GroupShuffleSplit(n_splits=9, train_size=0.66, random_state=random_state)
 for i, (train_indices, test_indices) in enumerate(splitter.split(data, groups=data['datasetName'])):
     print(f'Fold {i}')
     train_data = data.iloc[train_indices]
@@ -55,13 +60,13 @@ for i, (train_indices, test_indices) in enumerate(splitter.split(data, groups=da
     X_test_emb = embed_model.encode(X_test['colName'].to_numpy())
 
     # balance train data
-    smote = SMOTE(k_neighbors=k_neighbors, random_state=42) # todo, n_jobs=_NUM_THREADS)
+    smote = SMOTE(k_neighbors=k_neighbors, random_state=random_state) # todo, n_jobs=_NUM_THREADS)
     X_train_bal, y_train_bal = smote.fit_resample(X_train_emb, y_train)
     print(len(X_train_bal))
 
     # create pca/rf pipeline
-    pca = PCA(n_components=50)
-    rf = RandomForestClassifier(max_depth=10)
+    pca = PCA(n_components=50, random_state=random_state)
+    rf = RandomForestClassifier(max_depth=10, random_state=random_state)
     pipeline = Pipeline(steps=[('pca', pca), ('rf', rf)])
 
     # train pipeline
@@ -71,11 +76,21 @@ for i, (train_indices, test_indices) in enumerate(splitter.split(data, groups=da
     # score pipeline
     conf_mat = confusion_matrix(y_test, y_test_hat, labels=y_train.unique())
     print(conf_mat)
-    score = f1_score(y_test, y_test_hat, labels=y_train.unique(), average='macro')
-    print(f'Fold {i} F1 macro: {score}')
-    scores.append(score)
+    f1_macros.append(f1_score(y_test, y_test_hat, labels=y_train.unique(), average='macro'))
+    f1_micros.append(f1_score(y_test, y_test_hat, labels=y_train.unique(), average='micro'))
+    f1_weighted.append(f1_score(y_test, y_test_hat, labels=y_train.unique(), average='weighted'))
+    conf_matrices.append(conf_mat)
+    conf_matrices_norm.append(confusion_matrix(y_test, y_test_hat, labels=y_train.unique(), normalize='all'))
 
-print(f'Mean F1 Score: {np.mean(scores)}')
+print(f'F1 Macros: {f1_macros}')
+print(f'F1 Micros: {f1_micros}')
+print(f'F1 Weighteds: {f1_weighted}')
+np.set_printoptions(precision=5, suppress=True)
+print(f'Average confusion matrix: {np.mean(conf_matrices, axis=0)}')
+print(f'Average normalized confusion matrix: {np.mean(conf_matrices_norm, axis=0)}')
+print(f'Mean F1 Macro: {np.mean(f1_macros)}')
+print(f'Mean F1 Micro: {np.mean(f1_micros)}')
+print(f'Mean F1 Weighted: {np.mean(f1_weighted)}')
 
 # save pipeline
 with open(model_save_path, 'wb') as f:
