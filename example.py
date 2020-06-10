@@ -37,23 +37,28 @@ y_bal = embed_bal_df['colType']
 dataset_names = embed_bal_df['datasetName']
 
 #for train_ind, test_ind in splitter.split(embed_bal_df,groups = dataset_names):
-def run_fold(i:int, train_ind: np.ndarray, test_ind: np.ndarray):
+def run_fold(i: int, train_ind: np.ndarray, test_ind: np.ndarray):
     #now fit on every fold   
     print("fold_num = "+str(i))
     model.fit(X_bal.iloc[train_ind],y_bal.iloc[train_ind])
     y_hat = model.predict(X_bal.iloc[test_ind])
     y_test = y_bal.iloc[test_ind]
-    f1s.append(f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='macro'))
-    matrices.append(confusion_matrix(y_test, y_hat, labels=y_bal.iloc[train_ind].unique()))
-    
+    f1 = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='macro')
+    conf = confusion_matrix(y_test, y_hat, labels=y_bal.iloc[train_ind].unique())
+    return f1, conf
+
 def fold_generator(kfold, data, groups):
-    for i, (train_indices, test_indices) in enumerate(kfold.split(data, groups)):
-        yield (i, train_indices, test_indices, *args)    
+    for i, (train_indices, test_indices) in enumerate(kfold.split(data, groups=groups)):
+        yield (i, train_indices, test_indices)    
     
-mp_pool = mp.Pool(n_jobs)
+mp_pool = mp.Pool()
 results = mp_pool.starmap(run_fold, fold_generator(splitter, embed_bal_df, dataset_names))
 mp_pool.close()    
-
+mp_pool.join()
+for f1, matrix in results:
+    f1s.append(f1)
+    matrices.append(matrix)
+ 
 print(np.mean(f1s))
 print(matrices)    
 
