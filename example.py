@@ -44,17 +44,21 @@ print("Beginning cross validation")
 X_bal = embed_bal_df.drop(['colType','datasetName'],axis=1)
 y_bal = embed_bal_df['colType']
 dataset_names = embed_bal_df['datasetName']
-splitter = GroupShuffleSplit(n_splits = len(dataset_names.unique()), train_size=0.66, random_state = 31)
+splitter = GroupShuffleSplit(n_splits = 15, train_size=0.66, random_state = 31)
 
 for i in models:
     model = i
     model_name = model.__name__
+    model = model()
     def run_fold(j, train_ind, test_ind):
         #now fit on every fold   
         print("fold_num = "+str(j))
+        print("hi")
         model.fit(X_bal.iloc[train_ind],y_bal.iloc[train_ind])
+        print("bye")
         y_hat = model.predict(X_bal.iloc[test_ind])
         y_test = y_bal.iloc[test_ind]
+        print(y_hat)
         f1_macro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='macro')
         f1_micro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='micro')
         f1_weighted = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='weighted')
@@ -86,8 +90,8 @@ for i in models:
     mean_f1_weighted = np.mean(f1s_weighted)
     mean_accuracy = np.mean(accuracy)     
         
+        
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
 print(results)
 results.to_csv('final_cross_val.csv',index-False)
-
