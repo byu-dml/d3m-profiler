@@ -20,50 +20,49 @@ model_weights_path = '../../data_files/distilbert-base-nli'
 model = RandomForestClassifier(max_depth=10)
 
 closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
+closed_embed = '../../data_files/data/embedded_d3m_closed.csv'
 weight_model = SentenceTransformer(model_weights_path)
 _file = closed_d3m_file
 
-orig_df = pd.read_csv(_file)
-orig_df = orig_df.applymap(str)
 
-class_counts = orig_df[type_column].value_counts().values
+
+embedded_df = pd.read_csv(closed_embed)
+embedded_df = embedded_df.applymap(str)
+
+class_counts = embedded_df[type_column].value_counts().values
 balanced = len(set(class_counts)) == 1
 print(balanced)
-print(orig_df)
+#df = pd.concat([group_type_df, embeddings_df], axis=1)
 
-print("Embedding Data")
-print("Embedding column name...")
-col_name_embs = weight_model.encode(orig_df['colName'].str.lower().to_numpy())
-
-group_type_df = pd.DataFrame({'datasetName': orig_df['datasetName'], 'colType': orig_df['colType']})
-print("Building embedded dataframe...")
-embeddings_df = pd.DataFrame(data=col_name_embs, columns=['emb_{}'.format(i) for i in range(len(col_name_embs[0]))])
-df = pd.concat([group_type_df, embeddings_df], axis=1)
-print("Saving Embeddings...")
-df.to_csv('embedded_d3m_closed.csv',index=False)        
+X_embed = embedded_df.drop(['colType','datasetName'],axis=1)
+y = embedded_df['colType']
+       
+dataset_names = embedded_df['datasetName']  
 #balance the data
-#print("Balancing data...")
-#smote = SMOTE(k_neighbors=k_neighbors)
-#X_bal, y_bal = smote.fit_resample(X_embed,y)
-"""        
-class_counts = df[type_column].value_counts().values
-balanced = len(set(class_counts)) == 1
-print(balanced)
+print("Balancing data...")
+smote = SMOTE(k_neighbors=k_neighbors)
+X_bal, y_bal = smote.fit_resample(X_embed,y)
 
-X = df.drop(['datasetName', type_column], axis=1, inplace=True)
-y = df[type_column]
-dataset_names = df['datasetName']
+
+num_synthetic = len(X_bal.index) - len(X_embed.index)
+#create the rebalanced dataset
+rebalanced_df = pd.DataFrame(data=X_bal)
+rebalanced_df['colType'] = y_bal
+dataset_names = dataset_names.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
+rebalanced_df['datasetName'] = datasets
+
 
 #do shuffled cross validation, but that can also be replicated
 splitter = GroupShuffleSplit(n_splits = 2, train_size=0.66, random_state = 31)
 f1s = list()
 matrices = list()
-for train_ind, test_ind in splitter.split(df,groups = dataset_names):
+for train_ind, test_ind in splitter.split(rebalanced_df,groups = dataset_names):
     #now fit on every fold   
-    model.fit(X[train_ind],y[train_ind])
-    y_hat = model.predict(X[test_ind])
-    y_test = y[test_ind]
-    f1s.append(f1_score(ytest, yhat, labels = y[train_ind].unique(), average='macro'))
-    matrices.append
-"""
+    model.fit(X_bal[train_ind],y_bal[train_ind])
+    y_hat = model.predict(X_bal[test_ind])
+    y_test = y_bal[test_ind]
+    f1s.append(f1_score(y_test, y_hat, labels = y[train_ind].unique(), average='macro'))
+    matrices.append(confusion_matrix(y_test, y_hat, labels=y[train_ind].unique()))
+print(np.mean(f1s))
+print(matrices)    
 
