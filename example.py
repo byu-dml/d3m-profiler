@@ -16,6 +16,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
+num_threads = (mp.cpu_count() - 1)
 
 results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
@@ -59,18 +60,18 @@ for i in models:
         y_hat = model.predict(X_bal.iloc[test_ind])
         y_test = y_bal.iloc[test_ind]
         print(y_hat)
-        f1_macro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='macro')
-        f1_micro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='micro')
-        f1_weighted = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='weighted')
-        f1_accuracy = accuracy_score(y_test, y_hat)
-        conf = confusion_matrix(y_test, y_hat, labels=y_bal.iloc[train_ind].unique())
+        f1_macro = f1_score(y_test, y_hat, average='macro')
+        f1_micro = f1_score(y_test, y_hat, average='micro')
+        f1_weighted = f1_score(y_test, y_hat, average='weighted')
+        accuracy = accuracy_score(y_test, y_hat)
+        conf = confusion_matrix(y_test, y_hat)
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
 
     def fold_generator(kfold, data, groups):
         for i, (train_indices, test_indices) in enumerate(kfold.split(data, groups=groups)):
             yield (i, train_indices, test_indices)    
     
-    mp_pool = mp.Pool()
+    mp_pool = mp.Pool(max(num_threads,1))
     results_cross = mp_pool.starmap(run_fold, fold_generator(splitter, embed_bal_df, dataset_names))
     mp_pool.close()    
     mp_pool.join()
