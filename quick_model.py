@@ -1,7 +1,7 @@
 import pickle
 
 import pandas as pd
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -9,11 +9,9 @@ from sklearn.metrics import confusion_matrix, f1_score
 from sentence_transformers import SentenceTransformer
 from imblearn.over_sampling import SMOTE
 
-from d3m_profiler.embed_data import embed
-
 # config
 data_path = 'closed_d3m_data.csv'
-embed_model_path = './distilbert-base-nli-stsb-mean-tokens'
+embed_model_path = 'distilbert-base-nli-stsb-mean-tokens'
 k_neighbors = 3
 model_save_path = './quick_model.bin'
 
@@ -25,8 +23,8 @@ data.drop(['description'], axis=1, inplace=True)
 print(data.shape)
 
 # split data
-group_k_fold = GroupKFold(n_splits=5)
-train_indices, test_indices = next(group_k_fold.split(data, groups=data['datasetName']))
+splitter = GroupShuffleSplit(n_splits=2, train_size=0.66, random_state=42)
+train_indices, test_indices = next(splitter.split(data, groups=data['datasetName']))
 train_data = data.iloc[train_indices]
 test_data = data.iloc[test_indices]
 
@@ -45,6 +43,7 @@ X_test['colName'] = X_test['colName'].str.lower()
 
 print(X_train)
 print(y_train)
+k_neighbors = min(min(y_train.value_counts()) - 1, k_neighbors)
 
 # embed data
 embed_model = SentenceTransformer(embed_model_path)
@@ -52,7 +51,7 @@ X_train_emb = embed_model.encode(X_train['colName'].to_numpy())
 X_test_emb = embed_model.encode(X_test['colName'].to_numpy())
 
 # balance train data
-smote = SMOTE(k_neighbors=k_neighbors) # todo, n_jobs=_NUM_THREADS) random_state=42,
+smote = SMOTE(k_neighbors=k_neighbors, random_state=42) # todo, n_jobs=_NUM_THREADS)
 X_train_bal, y_train_bal = smote.fit_resample(X_train_emb, y_train)
 print(len(X_train_bal))
 
