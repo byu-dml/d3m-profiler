@@ -28,15 +28,16 @@ orig_df = orig_df.applymap(str)
 
 class_counts = orig_df[type_column].value_counts().values
 balanced = len(set(class_counts)) == 1
-
+print(balanced)
+print(orig_df)
 
 print("Embedding Data")
 print("Embedding datasetName...")
-dataset_name_embs = weight_model.encode(orig_df['datasetName'].str.lower())
+dataset_name_embs = weight_model.encode(orig_df['datasetName'].str.lower().to_numpy())
 print("Embedding description...")
-description_embs = weight_model.encode(orig_df['description'].str.lower())
+description_embs = weight_model.encode(orig_df['description'].str.lower().to_numpy())
 print("Embedding column name...")
-col_name_embs = weight_model.encode(orig_df['colName'].str.lower())
+col_name_embs = weight_model.encode(orig_df['colName'].str.lower().to_numpy())
 
 group_type_df = pd.DataFrame({'datasetName': orig_df['datasetName'], 'colType': orig_df['colType']})
 print("Building embedded dataframe...")
