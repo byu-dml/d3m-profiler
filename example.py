@@ -30,20 +30,20 @@ models = [KNeighborsClassifier,
 closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
 closed_embed = 'embedded_d3m_closed.csv'
 closed_embed_bal = 'closed_data_rebalance.csv'
-_file = closed_d3m_file
 
 
 print("loading file")
-embed_bal_df = pd.read_csv(closed_embed_bal)
+embed_df = pd.read_csv(closed_embed)
 print("Done loading!")
 
+print(embed_df)
 #do shuffled cross validation, but that can also be replicated
 f1s = list()
 matrices = list()
 print("Beginning cross validation")
-X_bal = embed_bal_df.drop(['colType','datasetName'],axis=1)
-y_bal = embed_bal_df['colType']
-dataset_names = embed_bal_df['datasetName']
+X_bal = embed_df.drop(['colType','datasetName'],axis=1)
+y_bal = embed_df['colType']
+dataset_names = embed_df['datasetName']
 splitter = GroupShuffleSplit(n_splits = len(dataset_names.unique()), train_size=0.66, random_state = 31)
 
 for i in models:
