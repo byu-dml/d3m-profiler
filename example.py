@@ -16,6 +16,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
+num_threads = (mp.cpu_count() - 1)
 
 results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
@@ -41,32 +42,43 @@ print(embed_df)
 f1s = list()
 matrices = list()
 print("Beginning cross validation")
+<<<<<<< HEAD
 X_bal = embed_df.drop(['colType','datasetName'],axis=1)
 y_bal = embed_df['colType']
 dataset_names = embed_df['datasetName']
 splitter = GroupShuffleSplit(n_splits = len(dataset_names.unique()), train_size=0.66, random_state = 31)
+=======
+X_bal = embed_bal_df.drop(['colType','datasetName'],axis=1)
+y_bal = embed_bal_df['colType']
+dataset_names = embed_bal_df['datasetName']
+splitter = GroupShuffleSplit(n_splits = 15, train_size=0.66, random_state = 31)
+>>>>>>> 4cefd0310e12a471e5e0c29b829c5220a6f86ab4
 
 for i in models:
     model = i
     model_name = model.__name__
+    model = model()
     def run_fold(j, train_ind, test_ind):
         #now fit on every fold   
         print("fold_num = "+str(j))
+        print("hi")
         model.fit(X_bal.iloc[train_ind],y_bal.iloc[train_ind])
+        print("bye")
         y_hat = model.predict(X_bal.iloc[test_ind])
         y_test = y_bal.iloc[test_ind]
-        f1_macro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='macro')
-        f1_micro = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='micro')
-        f1_weighted = f1_score(y_test, y_hat, labels = y_bal.iloc[train_ind].unique(), average='weighted')
-        f1_accuracy = accuracy_score(y_test, y_hat)
-        conf = confusion_matrix(y_test, y_hat, labels=y_bal.iloc[train_ind].unique())
+        print(y_hat)
+        f1_macro = f1_score(y_test, y_hat, average='macro')
+        f1_micro = f1_score(y_test, y_hat, average='micro')
+        f1_weighted = f1_score(y_test, y_hat, average='weighted')
+        accuracy = accuracy_score(y_test, y_hat)
+        conf = confusion_matrix(y_test, y_hat)
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
 
     def fold_generator(kfold, data, groups):
         for i, (train_indices, test_indices) in enumerate(kfold.split(data, groups=groups)):
             yield (i, train_indices, test_indices)    
     
-    mp_pool = mp.Pool()
+    mp_pool = mp.Pool(max(num_threads,1))
     results_cross = mp_pool.starmap(run_fold, fold_generator(splitter, embed_bal_df, dataset_names))
     mp_pool.close()    
     mp_pool.join()
@@ -86,8 +98,8 @@ for i in models:
     mean_f1_weighted = np.mean(f1s_weighted)
     mean_accuracy = np.mean(accuracy)     
         
+        
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
 print(results)
 results.to_csv('final_cross_val.csv',index-False)
-
