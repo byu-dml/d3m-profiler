@@ -4,6 +4,7 @@ import pathlib as pl
 import pandas as pd
 import pickle
 import sys
+from imblearn.over_sampling import SMOTE
 from d3m_profiler import rebalance
 from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
@@ -50,17 +51,18 @@ splitter = GroupShuffleSplit(n_splits = len(embed_df['datasetName'].unique()), t
 for i in models:
     model = i
     model_name = model.__name__
-    print("model_name")
+    print(model_name)
     model = model()
     def run_fold(j, train_ind, test_ind):
         #now fit on every fold 
         X_train_embed = X_embed.iloc[train_ind]
         y_train = y.iloc[train_ind]
-        print("Balancing training data...")
-        k_neighbors = embedded_df['colType'].value_counts().min()-1
+        print("Balancing training data "+str(j))
+        k_neighbors = embed_df['colType'].value_counts().min()-1
         assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
         smote = SMOTE(k_neighbors=k_neighbors)
-        X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train) 
+        X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train)
+        print("Finish Balancing "+str(j))
         print("fold_num = "+str(j))
         model.fit(X_train_bal,y_train_bal)
         y_hat = model.predict(X_embed.iloc[test_ind])
@@ -70,6 +72,7 @@ for i in models:
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         accuracy = accuracy_score(y_test, y_hat)
         conf = confusion_matrix(y_test, y_hat)
+        print("Finished fold "+str(j))
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
 
     def fold_generator(kfold, data, groups):
