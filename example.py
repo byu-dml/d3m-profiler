@@ -42,31 +42,29 @@ print(embed_df)
 f1s = list()
 matrices = list()
 print("Beginning cross validation")
-<<<<<<< HEAD
-X_bal = embed_df.drop(['colType','datasetName'],axis=1)
-y_bal = embed_df['colType']
+X_embed = embed_df.drop(['colType','datasetName'],axis=1)
+y = embed_df['colType']
 dataset_names = embed_df['datasetName']
-splitter = GroupShuffleSplit(n_splits = len(dataset_names.unique()), train_size=0.66, random_state = 31)
-=======
-X_bal = embed_bal_df.drop(['colType','datasetName'],axis=1)
-y_bal = embed_bal_df['colType']
-dataset_names = embed_bal_df['datasetName']
-splitter = GroupShuffleSplit(n_splits = 15, train_size=0.66, random_state = 31)
->>>>>>> 4cefd0310e12a471e5e0c29b829c5220a6f86ab4
+splitter = GroupShuffleSplit(n_splits = len(embed_df['datasetName'].unique()), train_size=0.66, random_state = 31)
 
 for i in models:
     model = i
     model_name = model.__name__
+    print("model_name")
     model = model()
     def run_fold(j, train_ind, test_ind):
-        #now fit on every fold   
+        #now fit on every fold 
+        X_train_embed = X_embed.iloc[train_ind]
+        y_train = y.iloc[train_ind]
+        print("Balancing training data...")
+        k_neighbors = embedded_df['colType'].value_counts().min()-1
+        assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+        smote = SMOTE(k_neighbors=k_neighbors)
+        X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train) 
         print("fold_num = "+str(j))
-        print("hi")
-        model.fit(X_bal.iloc[train_ind],y_bal.iloc[train_ind])
-        print("bye")
-        y_hat = model.predict(X_bal.iloc[test_ind])
-        y_test = y_bal.iloc[test_ind]
-        print(y_hat)
+        model.fit(X_train_bal,y_train_bal)
+        y_hat = model.predict(X_embed.iloc[test_ind])
+        y_test = y.iloc[test_ind]
         f1_macro = f1_score(y_test, y_hat, average='macro')
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
@@ -79,7 +77,7 @@ for i in models:
             yield (i, train_indices, test_indices)    
     
     mp_pool = mp.Pool(max(num_threads,1))
-    results_cross = mp_pool.starmap(run_fold, fold_generator(splitter, embed_bal_df, dataset_names))
+    results_cross = mp_pool.starmap(run_fold, fold_generator(splitter, embed_df, dataset_names))
     mp_pool.close()    
     mp_pool.join()
     f1s_macro = list()
