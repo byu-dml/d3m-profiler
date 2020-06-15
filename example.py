@@ -13,7 +13,7 @@ from sklearn.naive_bayes import GaussianNB as GaussianNB
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 from sklearn.neural_network import MLPClassifier as MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -46,7 +46,7 @@ print("Beginning cross validation")
 X_embed = embed_df.drop(['colType','datasetName'],axis=1)
 y = embed_df['colType']
 dataset_names = embed_df['datasetName']
-splitter = GroupShuffleSplit(n_splits = len(embed_df['datasetName'].unique()), train_size=0.66, random_state = 31)
+splitter = LeaveOneGroupOut()
 
 for i in models:
     model = i
@@ -58,7 +58,7 @@ for i in models:
         X_train_embed = X_embed.iloc[train_ind]
         y_train = y.iloc[train_ind]
         print("Balancing training data "+str(j))
-        k_neighbors = embed_df['colType'].value_counts().min()-1
+        k_neighbors = y_train.value_counts().min()-1
         assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
         smote = SMOTE(k_neighbors=k_neighbors)
         X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train)
@@ -98,7 +98,7 @@ for i in models:
     mean_f1_micro = np.mean(f1s_micro)
     mean_f1_weighted = np.mean(f1s_weighted)
     mean_accuracy = np.mean(accuracy)     
-        
+    print({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted})   
         
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
