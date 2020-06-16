@@ -30,8 +30,8 @@ def split(container, count):
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
-    X_train_embed = X_embed.iloc[train_ind]
-    y_train = y.iloc[train_ind]
+    X_train_embed = X_embed[train_ind]
+    y_train = y[train_ind]
     #print("Balancing training data "+str(j))
     k_neighbors = y_train.value_counts().min()-1
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
@@ -40,8 +40,8 @@ def run_fold(train_ind, test_ind):
     #print("Finish Balancing "+str(j))
     #print("fold_num = "+str(j))
     model.fit(X_train_bal,y_train_bal)
-    y_hat = model.predict(X_embed.iloc[test_ind])
-    y_test = y.iloc[test_ind]
+    y_hat = model.predict(X_embed[test_ind])
+    y_test = y[test_ind]
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
@@ -76,8 +76,8 @@ if (COMM.rank == 0):
     #do shuffled cross validation, but that can also be replicated
     f1s = list()
     matrices = list()
-    X_embed = embed_df.drop(['colType','datasetName'],axis=1)
-    y = embed_df['colType']
+    X_embed = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
+    y = embed_df['colType'].values.tolist()
     dataset_names = embed_df['datasetName']
     splitter = LeaveOneGroupOut()
 
@@ -90,7 +90,7 @@ else:
     y = None
     jobs = None
 
-COMM.Bcast(X_embed,root=0)
+COMM.bcast(X_embed,root=0)
 COMM.Bcast(y,root=0)
 
 jobs = COMM.scatter(jobs, root = 0)    
