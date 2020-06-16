@@ -26,6 +26,11 @@ print(model_name)
 model = model()
 
 def split(container, count):
+    list_all = list()
+    for x in container:
+        list_all.append(x)
+        
+    container = np.asarray(list_all)
     return [container[_i::count] for _i in range(count)]    
 
 def run_fold(train_ind, test_ind):
@@ -91,7 +96,7 @@ else:
     jobs = None
 
 COMM.bcast(X_embed,root=0)
-COMM.Bcast(y,root=0)
+COMM.bcast(y,root=0)
 
 jobs = COMM.scatter(jobs, root = 0)    
 results_init = []
