@@ -20,8 +20,10 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
 
-results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
-
+model = KNeighborsClassifier
+model_name = model.__name__
+print(model_name)
+model = model()
 
 def split(container, count):
     return [container[_i::count] for _i in range(count)]    
@@ -54,8 +56,8 @@ def run_fold(train_ind, test_ind):
 #    for i, (train_indices, test_indices) in enumerate(kfold.split(data, groups=dataset_names)):
 #        yield (i, train_indices, test_indices)    
 COMM = MPI.COMM_WORLD
-print("Beginning cross validation")
 if (COMM.rank == 0):
+    print("Beginning cross validation")
     type_column = 'colType'
     models = [KNeighborsClassifier,
     DecisionTreeClassifier,
@@ -79,18 +81,15 @@ if (COMM.rank == 0):
     dataset_names = embed_df['datasetName']
     splitter = LeaveOneGroupOut()
 
-    model = KNeighborsClassifier
-    model_name = model.__name__
-    print(model_name)
-    model = model()
     print(COMM.size)
     #pass model, and X_embed and y
-    #save this data to a pickle file to be accessed in
-    jobs = split(kfold.split(data, groups=dataset_names), COMM.size)  
+    jobs = split(splitter.split(embed_df, groups=dataset_names), COMM.size)  
 else:
+    model = None
+    X_embed = None
+    y = None
     jobs = None
 
-COMM.Bcast(model,root=0)
 COMM.Bcast(X_embed,root=0)
 COMM.Bcast(y,root=0)
 
@@ -100,13 +99,15 @@ for job in jobs:
     train_ind, test_ind = job
     results_init.append(run_fold(train_ind, test_ind))
 
-print()
-print("Finished cross validation!")
-print()
-print("Start compiling answer...")
 results = MPI.COMM_WORLD.gather(results, root = 0)
 
 if (COMM.rank == 0):
+    results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
+    print()
+    print("Finished cross validation!")
+    print()
+    print("Start compiling answer...")
+
     results_final = [_i for temp in results_init for _i in temp]
     
     f1s_macro = list()
