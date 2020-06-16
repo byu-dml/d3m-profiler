@@ -22,38 +22,9 @@ from sklearn.metrics import accuracy_score, f1_score
 
 results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
-type_column = 'colType'
-models = [KNeighborsClassifier,
-    DecisionTreeClassifier,
-    RandomForestClassifier,
-    MLPClassifier,
-    GaussianNB]
-
-closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
-closed_embed = 'embedded_d3m_closed.csv'
-closed_embed_bal = 'closed_data_rebalance.csv'
-
-
-print("loading file")
-embed_df = pd.read_csv(closed_embed)
-print("Done loading!")
-
-#print(embed_df)
-#do shuffled cross validation, but that can also be replicated
-f1s = list()
-matrices = list()
-X_embed = embed_df.drop(['colType','datasetName'],axis=1)
-y = embed_df['colType']
-dataset_names = embed_df['datasetName']
-splitter = LeaveOneGroupOut()
-
-model = KNeighborsClassifier
-model_name = model.__name__
-print(model_name)
-model = model()
 
 def split(container, count):
-    return [container[_i::count] for _i in range(count)]
+    return [container[_i::count] for _i in range(count)]    
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
@@ -85,16 +56,49 @@ def run_fold(train_ind, test_ind):
 COMM = MPI.COMM_WORLD
 print("Beginning cross validation")
 if (COMM.rank == 0):
+    type_column = 'colType'
+    models = [KNeighborsClassifier,
+    DecisionTreeClassifier,
+    RandomForestClassifier,
+    MLPClassifier,
+    GaussianNB]
+
+    closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
+    closed_embed = 'embedded_d3m_closed.csv'
+    closed_embed_bal = 'closed_data_rebalance.csv'
+
+
+    print("loading file")
+    embed_df = pd.read_csv(closed_embed)
+    print("Done loading!")
+    #do shuffled cross validation, but that can also be replicated
+    f1s = list()
+    matrices = list()
+    X_embed = embed_df.drop(['colType','datasetName'],axis=1)
+    y = embed_df['colType']
+    dataset_names = embed_df['datasetName']
+    splitter = LeaveOneGroupOut()
+
+    model = KNeighborsClassifier
+    model_name = model.__name__
+    print(model_name)
+    model = model()
     print(COMM.size)
+    #pass model, and X_embed and y
+    #save this data to a pickle file to be accessed in
     jobs = split(kfold.split(data, groups=dataset_names), COMM.size)  
 else:
     jobs = None
 
+COMM.Bcast(model,root=0)
+COMM.Bcast(X_embed,root=0)
+COMM.Bcast(y,root=0)
+
 jobs = COMM.scatter(jobs, root = 0)    
-results = []
+results_init = []
 for job in jobs:
     train_ind, test_ind = job
-    results.append(run_fold(train_ind, test_ind))
+    results_init.append(run_fold(train_ind, test_ind))
 
 print()
 print("Finished cross validation!")
@@ -103,7 +107,7 @@ print("Start compiling answer...")
 results = MPI.COMM_WORLD.gather(results, root = 0)
 
 if (COMM.rank == 0):
-    results = [_i for temp in results for _i in temp]
+    results_final = [_i for temp in results_init for _i in temp]
     
     f1s_macro = list()
     f1s_micro = list()
@@ -124,5 +128,5 @@ if (COMM.rank == 0):
         
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
-print(results)
-results.to_csv(model_name+'_final_cross_val.csv',index-False)
+    print(results)
+    results.to_csv(model_name+'_final_cross_val.csv',index-False)
