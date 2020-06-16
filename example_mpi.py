@@ -5,6 +5,7 @@ import pathlib as pl
 import pandas as pd
 import pickle
 import sys
+from mpi4py import MPI
 from imblearn.over_sampling import SMOTE
 from d3m_profiler import rebalance
 from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
@@ -51,6 +52,9 @@ model_name = model.__name__
 print(model_name)
 model = model()
 
+def split(container, count):
+    return [container[_i::count] for _i in range(count)]
+
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
     X_train_embed = X_embed.iloc[train_ind]
@@ -85,7 +89,8 @@ if (COMM.rank == 0):
     jobs = split(kfold.split(data, groups=dataset_names), COMM.size)  
 else:
     jobs = None
-    
+
+jobs = COMM.scatter(jobs, root = 0)    
 results = []
 for job in jobs:
     train_ind, test_ind = job
