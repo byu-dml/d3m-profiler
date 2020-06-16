@@ -22,11 +22,7 @@ from sklearn.metrics import accuracy_score, f1_score
 
 model = KNeighborsClassifier
 model_name = model.__name__
-print(model_name)
-model = model()
-
-def split(container, count):
-    return [container[_i::count] for _i in range(count)]    
+model = model()  
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
@@ -64,12 +60,9 @@ if (COMM.rank == 0):
     RandomForestClassifier,
     MLPClassifier,
     GaussianNB]
-
     closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
     closed_embed = 'embedded_d3m_closed.csv'
     closed_embed_bal = 'closed_data_rebalance.csv'
-
-
     print("loading file")
     embed_df = pd.read_csv(closed_embed)
     print("Done loading!")
@@ -80,10 +73,9 @@ if (COMM.rank == 0):
     y = embed_df['colType'].values.tolist()
     dataset_names = embed_df['datasetName']
     splitter = LeaveOneGroupOut()
-
     print(COMM.size)
-    #pass model, and X_embed and y
-    jobs = split(splitter.split(embed_df, groups=dataset_names), COMM.size)  
+    split_num = splitter.get_n_splits(embed_df, groups=dataset_names)
+    jobs = splitter.split(embed_df, groups=dataset_names)
 else:
     model = None
     X_embed = None
@@ -92,8 +84,7 @@ else:
 
 COMM.bcast(X_embed,root=0)
 COMM.Bcast(y,root=0)
-
-jobs = COMM.scatter(jobs, root = 0)    
+ 
 results_init = []
 for job in jobs:
     train_ind, test_ind = job
