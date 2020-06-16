@@ -22,7 +22,7 @@ from sklearn.metrics import accuracy_score, f1_score
 
 model = KNeighborsClassifier
 model_name = model.__name__
-model = model()  
+model = model()
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
@@ -83,8 +83,7 @@ else:
     jobs = None
 
 COMM.bcast(X_embed,root=0)
-COMM.Bcast(y,root=0)
- 
+COMM.bcast(y,root=0)
 results_init = []
 for job in jobs:
     train_ind, test_ind = job
