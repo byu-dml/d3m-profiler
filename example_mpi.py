@@ -89,7 +89,7 @@ for job in jobs:
     train_ind, test_ind = job
     results_init.append(run_fold(train_ind, test_ind))
 
-results = MPI.COMM_WORLD.gather(results, root = 0)
+results_init = MPI.COMM_WORLD.gather(results, root = 0)
 
 if (COMM.rank == 0):
     results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
@@ -104,7 +104,7 @@ if (COMM.rank == 0):
     f1s_micro = list()
     f1s_weighted = list()
     accuracys = list()
-    for f1_macro, f1_micro, f1_weighted, accuracy, matrix in results:
+    for f1_macro, f1_micro, f1_weighted, accuracy, matrix in results_final:
         f1s_macro.append(f1_macro)
         f1s_micro.append(f1_micro)
         f1s_weighted.append(f1_weighted)
