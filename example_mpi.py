@@ -66,6 +66,7 @@ if (COMM.rank == 0):
     print("Done loading!")
     #do shuffled cross validation, but that can also be replicated
     X_embed = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
+    print(np.shape(X_embed))
     y = embed_df['colType']
     dataset_names = embed_df['datasetName']
     splitter = LeaveOneGroupOut()
