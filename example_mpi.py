@@ -26,7 +26,7 @@ model = model()
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
-    X_train_embed = X_embed.iloc[train_ind]
+    X_train_embed = X_embed[[train_ind]]
     y_train = y.iloc[train_ind]
     #print("Balancing training data "+str(j))
     k_neighbors = y_train.value_counts().min()-1
@@ -36,7 +36,7 @@ def run_fold(train_ind, test_ind):
     X_train_embed = list()
     y_train = list()
     model.fit(X_train_bal,y_train_bal)
-    y_hat = model.predict(X_embed.iloc[test_ind])
+    y_hat = model.predict(X_embed[[test_ind]])
     y_test = y.iloc[test_ind]
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
@@ -65,7 +65,7 @@ if (COMM.rank == 0):
     embed_df = pd.read_csv(closed_embed)
     print("Done loading!")
     #do shuffled cross validation, but that can also be replicated
-    X_embed = embed_df.drop(['colType','datasetName'],axis=1)
+    X_embed = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
     y = embed_df['colType']
     dataset_names = embed_df['datasetName']
     splitter = LeaveOneGroupOut()
@@ -82,7 +82,7 @@ else:
     y = None
     jobs = None
 
-X_embed = COMM.bcast(X_embed,root=0)
+COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 y = COMM.bcast(y,root=0)
 jobs = COMM.scatter(jobs, root=0)
 
