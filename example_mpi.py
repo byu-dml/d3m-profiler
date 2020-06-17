@@ -10,35 +10,42 @@ from imblearn.over_sampling import SMOTE
 #from d3m_profiler import rebalance
 #from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 #from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
-from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
+#from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
-#from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier as MLPClassifier
 from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
 
-model = AdaBoostClassifier
+#define the model to use across nodes
+model = MLPClassifier
 model_name = model.__name__
 model = model()
 
 def run_fold(train_ind, test_ind):
-    #now fit on every fold 
+    #now fit using the indeces given by the kfold splitter
     X_train_embed = X_embed[train_ind]
     y_train = y.iloc[train_ind]
+    #get the labels for the confusion matrix
     labels = y_train.unique()
-    #print("Balancing training data "+str(j))
+    #get the k_neighbors balance number
     k_neighbors = y_train.value_counts().min()-1
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+    #rebalance
     smote = SMOTE(k_neighbors=k_neighbors)
     X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train)
+    #clear up memory space
     X_train_embed = list()
     y_train = list()
+    #fit on balanced data
     model.fit(X_train_bal,y_train_bal)
+    #predict on the model
     y_hat = model.predict(X_embed[test_ind])
     y_test = y.iloc[test_ind]
+    #get the scores of results
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
@@ -54,48 +61,48 @@ COMM = MPI.COMM_WORLD
 if (COMM.rank == 0):
     print("Beginning cross validation")
     type_column = 'colType'
-    #models = [KNeighborsClassifier,
-    #DecisionTreeClassifier,
-    #RandomForestClassifier,
-    #MLPClassifier,
-    #GaussianNB]
-    #closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
     closed_embed = 'embedded_d3m_closed.csv'
-    #closed_embed_bal = 'closed_data_rebalance.csv'
+    
     print("loading file")
     embed_df = pd.read_csv(closed_embed)
     print("Done loading!")
+    
     #do shuffled cross validation, but that can also be replicated
     X_embed = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
-    print(np.shape(X_embed))
     y = embed_df['colType']
     dataset_names = embed_df['datasetName']
-    splitter = LeaveOneGroupOut()
-    split_num = splitter.get_n_splits(embed_df, groups=dataset_names)
-    jobs = list(splitter.split(embed_df, groups=dataset_names))
+    k_splitter = LeaveOneGroupOut()
+    split_num = k_splitter.get_n_splits(embed_df, groups=dataset_names)
+    jobs = list(k_splitter.split(embed_df, groups=dataset_names))
+    
+    #gets the jobs and splits them into even-sized-lists to be spread across the different cpu's
     list_jobs_total = [list() for i in range(COMM.size)]
     for i in range(len(jobs)):
         j = i % COMM.size
         list_jobs_total[j].append(jobs[i])
     jobs = list_jobs_total
-    print(COMM.size)
 else:
+    #initalizes variables to pass to other processors, size of X_embed is intialized correctly
     X_embed = np.empty((47831, 768),dtype='d')
     y = None
     jobs = None
 
+#get the values from the root processor
 y = COMM.bcast(y,root=0)
 jobs = COMM.scatter(jobs, root=0)
 COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 
+#run cross-validation on all the different processors
 results_init = []
 for job in jobs:
     train_ind, test_ind = job
     results_init.append(run_fold(train_ind, test_ind))
 
+#gather results together
 results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
 jobs = list()
 
+#compile and save the results
 if (COMM.rank == 0):
     jobs = list()
     results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
@@ -118,7 +125,6 @@ if (COMM.rank == 0):
         accuracys.append(accuracy)         
         confusions.append(conf)
 
-
     mean_f1_macro = np.mean(f1s_macro)    
     mean_f1_micro = np.mean(f1s_micro)
     mean_f1_weighted = np.mean(f1s_weighted)
@@ -127,7 +133,6 @@ if (COMM.rank == 0):
         
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
-    print(results)
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
     conf_mean = np.sum(confusions) / len(confusions)
     filename = model_name+'matrix_mean.pkl'
