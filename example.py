@@ -18,8 +18,7 @@ from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
-num_threads = len(os.sched_getaffinity(0))
-print(num_threads)
+
 results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
 type_column = 'colType'
