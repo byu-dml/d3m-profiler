@@ -10,24 +10,25 @@ from imblearn.over_sampling import SMOTE
 #from d3m_profiler import rebalance
 #from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 #from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
-#from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
-from sklearn.neural_network import MLPClassifier as MLPClassifier
+#from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
 from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
 
-model = MLPClassifier
+model = AdaBoostClassifier
 model_name = model.__name__
 model = model()
 
 def run_fold(train_ind, test_ind):
     #now fit on every fold 
-    X_train_embed = X_embed[[train_ind]]
+    X_train_embed = X_embed[train_ind]
     y_train = y.iloc[train_ind]
+    labels = y_train.unique()
     #print("Balancing training data "+str(j))
     k_neighbors = y_train.value_counts().min()-1
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
@@ -36,13 +37,13 @@ def run_fold(train_ind, test_ind):
     X_train_embed = list()
     y_train = list()
     model.fit(X_train_bal,y_train_bal)
-    y_hat = model.predict(X_embed[[test_ind]])
+    y_hat = model.predict(X_embed[test_ind])
     y_test = y.iloc[test_ind]
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
     accuracy = accuracy_score(y_test, y_hat)
-    conf = confusion_matrix(y_test, y_hat)
+    conf = confusion_matrix(y_test, y_hat, labels=labels)
     print("Finished Fold!")
     return f1_macro, f1_micro, f1_weighted, accuracy, conf
 
@@ -79,13 +80,13 @@ if (COMM.rank == 0):
     jobs = list_jobs_total
     print(COMM.size)
 else:
-    X_embed = None
+    X_embed = np.empty((47831, 768),dtype='d')
     y = None
     jobs = None
 
-COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 y = COMM.bcast(y,root=0)
 jobs = COMM.scatter(jobs, root=0)
+COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 
 results_init = []
 for job in jobs:
