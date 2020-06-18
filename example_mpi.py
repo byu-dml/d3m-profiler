@@ -98,7 +98,7 @@ COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 results_init = []
 for job in jobs:
     train_ind, test_ind = job
-    results_init.append(run_fold(train_ind, test_ind))
+    results_init.append(run_fold(train_ind, test_ind, balance=True))
 
 #gather results together
 results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
