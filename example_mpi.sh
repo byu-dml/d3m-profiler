@@ -4,7 +4,7 @@
 #SBATCH --ntasks=200   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=20  # number of nodes
 #SBATCH --mem-per-cpu=6500M   # memory per CPU core
-#SBATCH -J "KNN_PCA Tester"   # job name
+#SBATCH -J "RF_unbal Tester"   # job name
 
 #add the right thing to the file path
 export PATH="$HOME/.local/bin:$PATH"

@@ -55,6 +55,7 @@ def run_fold(train_ind, test_ind, balance=True):
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
+    print(f1_weighted)
     accuracy = accuracy_score(y_test, y_hat)
     conf = confusion_matrix(y_test, y_hat, labels=labels)
     print("Finished Fold!")
@@ -137,7 +138,7 @@ if (COMM.rank == 0):
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
-    conf_mean = np.sum(confusions) / len(confusions)
+    conf_mean = np.sum(confusions,axis=0) / len(confusions)
     filename = model_name+'_matrix_mean.pkl'
     fileObject = open(filename, 'wb')
     pickle.dump(conf_mean, fileObject)

@@ -9,7 +9,7 @@ from mpi4py import MPI
 from imblearn.over_sampling import SMOTE
 #from d3m_profiler import rebalance
 #from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
-#from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
@@ -23,10 +23,8 @@ from sklearn.metrics import accuracy_score, f1_score
 
 random_state = 42
 #define the model to use across nodes
-model_name = 'knn_PCA'
-knn = KNeighborsClassifier()
-pca = PCA(n_components=50,random_state=random_state)
-model = Pipeline(steps=[('pca',pca),('knn',knn)])
+model_name = 'RF_unbal_t'
+model = RandomForestClassifier(max_depth=10,random_state=random_state)
 
 def run_fold(train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
@@ -98,7 +96,7 @@ COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 results_init = []
 for job in jobs:
     train_ind, test_ind = job
-    results_init.append(run_fold(train_ind, test_ind, balance=True))
+    results_init.append(run_fold(train_ind, test_ind, balance=False))
 
 #gather results together
 results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
@@ -136,7 +134,7 @@ if (COMM.rank == 0):
     results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
 
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
-    conf_mean = np.sum(confusions) / len(confusions)
+    conf_mean = np.sum(confusions,axis=0) / len(confusions)
     filename = model_name+'matrix_mean.pkl'
     fileObject = open(filename, 'wb')
     pickle.dump(conf_mean, fileObject)
