@@ -13,17 +13,20 @@ from imblearn.over_sampling import SMOTE
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
-#from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier as MLPClassifier
+from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import PCA
+#from sklearn.neural_network import MLPClassifier as MLPClassifier
 from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
-
+random_state = 42
 #define the model to use across nodes
-model = MLPClassifier
-model_name = model.__name__
-model = model()
+model_name = 'knn_PCA'
+knn = KNeighborsClassifier()
+pca = PCA(n_components=50,random_state=random_state)
+model = Pipeline(steps=[('pca',pca),('knn',knn)])
 
 def run_fold(train_ind, test_ind):
     #now fit using the indeces given by the kfold splitter
