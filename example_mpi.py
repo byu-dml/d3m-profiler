@@ -13,9 +13,9 @@ from imblearn.over_sampling import SMOTE
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
-from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.decomposition import PCA
+#from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
+#from sklearn.pipeline import Pipeline
+#from sklearn.decomposition import PCA
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
@@ -28,23 +28,22 @@ knn = KNeighborsClassifier()
 pca = PCA(n_components=50,random_state=random_state)
 model = Pipeline(steps=[('pca',pca),('knn',knn)])
 
-def run_fold(train_ind, test_ind):
+def run_fold(train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
     X_train_embed = X_embed[train_ind]
     y_train = y.iloc[train_ind]
     #get the labels for the confusion matrix
-    labels = y_train.unique()
-    #get the k_neighbors balance number
-    k_neighbors = y_train.value_counts().min()-1
-    assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
-    #rebalance
-    smote = SMOTE(k_neighbors=k_neighbors)
-    X_train_bal, y_train_bal = smote.fit_resample(X_train_embed,y_train)
-    #clear up memory space
-    X_train_embed = list()
-    y_train = list()
-    #fit on balanced data
-    model.fit(X_train_bal,y_train_bal)
+    if (balance == True):
+        labels = y_train.unique()
+        #get the k_neighbors balance number
+        k_neighbors = y_train.value_counts().min()-1
+        assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+        #rebalance
+        smote = SMOTE(k_neighbors=k_neighbors)
+        X_train_embed, y_train = smote.fit_resample(X_train_embed,y_train)
+        
+    #fit on  data
+    model.fit(X_train_embed,y_train)
     #predict on the model
     y_hat = model.predict(X_embed[test_ind])
     y_test = y.iloc[test_ind]
