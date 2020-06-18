@@ -51,7 +51,6 @@ def evaluate_model(model, balance=True, use_data=False):
         print("Finished Fold!")
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
   
-    COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         print("Beginning cross validation")
         if (use_data is False):
@@ -138,20 +137,23 @@ if __name__ == "__main__":
     class NaiveModel:
         def fit(self,X_train,y_train):
             self.majority = y_train.value_counts().idxmax()
+            print(self.majority)
         def predict(self,X_test):
             y_hat = [self.majority for i in range(len(X_test))]
             return y_hat
             
     model = NaiveModel()       
+    COMM = MPI.COMM_WORLD
     #get the cross validated results of the naive model (no balancing)
-    results = evaluate_model(model, balance=False, use_data=False)    
-    #save the results
-    results.to_csv(model_name+'_final_cross_val.csv',index=False)
-    conf_mean = np.sum(confusions) / len(confusions)
-    filename = model_name+'_matrix_mean.pkl'
-    fileObject = open(filename, 'wb')
-    pickle.dump(conf_mean, fileObject)
-    fileObject.close()
+    if (COMM.rank == 0):
+        results = evaluate_model(model, balance=False, use_data=False)    
+        #save the results
+        results.to_csv(model_name+'_final_cross_val.csv',index=False)
+        conf_mean = np.sum(confusions) / len(confusions)
+        filename = model_name+'_matrix_mean.pkl'
+        fileObject = open(filename, 'wb')
+        pickle.dump(conf_mean, fileObject)
+        fileObject.close()
     
     
     
