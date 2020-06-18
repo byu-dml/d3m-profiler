@@ -26,9 +26,7 @@ from sklearn.metrics import accuracy_score, f1_score
 model_name = 'Naive'
 class NaiveModel:
     def fit(self,X_train,y_train):
-        print(y_train)
         self.majority = y_train.value_counts().idxmax()
-        print(self.majority)
     def predict(self,X_test):
         y_hat = [self.majority for i in range(len(X_test))]
         return y_hat
@@ -38,9 +36,9 @@ def run_fold(train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
     X_train_embed = X_embed[train_ind]
     y_train = y.iloc[train_ind]
+    labels = y_train.unique()
     #get the labels for the confusion matrix
     if (balance == True):
-        labels = y_train.unique()
         #get the k_neighbors balance number
         k_neighbors = y_train.value_counts().min()-1
         assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
@@ -140,10 +138,7 @@ if (COMM.rank == 0):
 
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
     conf_mean = np.sum(confusions) / len(confusions)
-    filename = model_name+'matrix_mean.pkl'
+    filename = model_name+'_matrix_mean.pkl'
     fileObject = open(filename, 'wb')
     pickle.dump(conf_mean, fileObject)
     fileObject.close()
-    
-    
-    
