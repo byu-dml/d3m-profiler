@@ -21,6 +21,7 @@ from sklearn.model_selection import GroupShuffleSplit, LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 
+
 def evaluate_model(model, balance=True, use_data=False):
 
     def run_fold(train_ind, test_ind, balance=True):
@@ -129,7 +130,12 @@ def evaluate_model(model, balance=True, use_data=False):
         print({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro,      'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted})   
         
         results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
-        return results
+        results.to_csv(model_name+'_final_cross_val.csv',index=False)
+        conf_mean = np.sum(confusions) / len(confusions)
+        filename = model_name+'_matrix_mean.pkl'
+        fileObject = open(filename, 'wb')
+        pickle.dump(conf_mean, fileObject)
+        fileObject.close()
 
 if __name__ == "__main__":
     #define the model
@@ -144,16 +150,7 @@ if __name__ == "__main__":
             return y_hat
             
     model = NaiveModel()       
-    #get the cross validated results of the naive model (no balancing)
-    if (COMM.rank == 0):
-        results = evaluate_model(model, balance=False, use_data=False)    
-        #save the results
-        results.to_csv(model_name+'_final_cross_val.csv',index=False)
-        conf_mean = np.sum(confusions) / len(confusions)
-        filename = model_name+'_matrix_mean.pkl'
-        fileObject = open(filename, 'wb')
-        pickle.dump(conf_mean, fileObject)
-        fileObject.close()
+    evaluate_model(model, balance=False, use_data=False) 
     
     
     
