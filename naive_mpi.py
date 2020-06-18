@@ -133,6 +133,7 @@ def evaluate_model(model, balance=True, use_data=False):
 
 if __name__ == "__main__":
     #define the model
+    COMM = MPI.COMM_WORLD
     model_name = 'Naive'
     class NaiveModel:
         def fit(self,X_train,y_train):
@@ -143,7 +144,6 @@ if __name__ == "__main__":
             return y_hat
             
     model = NaiveModel()       
-    COMM = MPI.COMM_WORLD
     #get the cross validated results of the naive model (no balancing)
     if (COMM.rank == 0):
         results = evaluate_model(model, balance=False, use_data=False)    
