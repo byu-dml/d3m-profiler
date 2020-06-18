@@ -51,7 +51,7 @@ def evaluate_model(model, balance=True, use_data=False):
         conf = confusion_matrix(y_test, y_hat, labels=labels)
         print("Finished Fold!")
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
-  
+    COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         print("Beginning cross validation")
         if (use_data is False):
@@ -139,17 +139,19 @@ def evaluate_model(model, balance=True, use_data=False):
 
 if __name__ == "__main__":
     #define the model
-    COMM = MPI.COMM_WORLD
     model_name = 'Naive'
     class NaiveModel:
         def fit(self,X_train,y_train):
+            print(y_train)
             self.majority = y_train.value_counts().idxmax()
             print(self.majority)
         def predict(self,X_test):
             y_hat = [self.majority for i in range(len(X_test))]
             return y_hat
             
-    model = NaiveModel()       
+    model = NaiveModel()
+    print("Evaluating")
+    print()       
     evaluate_model(model, balance=False, use_data=False) 
     
     
