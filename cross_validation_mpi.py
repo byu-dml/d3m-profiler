@@ -39,17 +39,16 @@ def evaluate_model(rank,balance,col_type):
         #fit on  data
         model.fit(X_train_embed,y_train)
         #predict on the model
-        print(test_ind)
         y_hat = model.predict(X_embed[test_ind])
         y_test = y.iloc[test_ind]
-        print(y_hat.value_counts())
-        print(y_test.value_counts())
+        #print(y_hat)
+        #print(y_test.value_counts())
         #get the scores of results
         f1_macro = f1_score(y_test, y_hat, average='macro')
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         accuracy = accuracy_score(y_test, y_hat)
-        print(accuracy)
+        #print(accuracy)
         conf = confusion_matrix(y_test, y_hat, labels=labels)
         print("Finished Fold!")
         return f1_macro, f1_micro, f1_weighted, accuracy, conf
@@ -86,11 +85,11 @@ def evaluate_model(rank,balance,col_type):
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
-    model = COMM.bcast(model, root=0) 
     COMM.Bcast([X_embed, MPI.FLOAT], root=0)
 
     #run cross-validation on all the different processors
     results_init = []
+    print(np.shape(jobs))
     for job in jobs:
         train_ind, test_ind = job
         results_init.append(run_fold(train_ind, test_ind, balance=False))
