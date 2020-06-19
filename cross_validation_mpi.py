@@ -25,9 +25,9 @@ def evaluate_model(rank,balance,col_type):
 
     def run_fold(train_ind, test_ind, balance=True):
         #now fit using the indeces given by the kfold splitter
-        X_train_embed = X_embed[train_ind]
+        X_train = X_data[train_ind]
         y_train = y.iloc[train_ind]
-        labels = y_train.unique()
+        #labels = y_train.unique()
         #get the labels for the confusion matrix
         if (balance == True):
             #get the k_neighbors balance number
@@ -35,23 +35,23 @@ def evaluate_model(rank,balance,col_type):
             assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
             #rebalance
             smote = SMOTE(k_neighbors=k_neighbors)
-            X_train_embed, y_train = smote.fit_resample(X_train_embed,y_train)       
+            X_train, y_train = smote.fit_resample(X_train,y_train)       
         #fit on  data
-        model.fit(X_train_embed,y_train)
+        model.fit(X_train,y_train)
         #predict on the model
-        y_hat = model.predict(X_embed[test_ind])
-        y_test = y.iloc[test_ind]
+        y_hat = model.predict(X_data[test_ind])
+        y_test = y.iloc[test_ind].tolist()
         #print(y_hat)
         #print(y_test.value_counts())
         #get the scores of results
-        f1_macro = f1_score(y_test, y_hat, average='macro')
-        f1_micro = f1_score(y_test, y_hat, average='micro')
-        f1_weighted = f1_score(y_test, y_hat, average='weighted')
-        accuracy = accuracy_score(y_test, y_hat)
+        #f1_macro = f1_score(y_test, y_hat, average='macro')
+        #f1_micro = f1_score(y_test, y_hat, average='micro')
+        #f1_weighted = f1_score(y_test, y_hat, average='weighted')
+        #accuracy = accuracy_score(y_test, y_hat)
         #print(accuracy)
-        conf = confusion_matrix(y_test, y_hat, labels=labels)
+        #conf = confusion_matrix(y_test, y_hat, labels=labels)
         print("Finished Fold!")
-        return f1_macro, f1_micro, f1_weighted, accuracy, conf
+        return y_hat, y_test
   
     if (rank == 0):
         print("Beginning cross validation")
@@ -63,7 +63,7 @@ def evaluate_model(rank,balance,col_type):
         print("Done loading!")
     
         #do shuffled cross validation, but that can also be replicated
-        X_embed = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
+        X_data = embed_df.drop(['colType','datasetName'],axis=1).to_numpy()
         y = embed_df['colType']
         dataset_names = embed_df['datasetName']
         k_splitter = LeaveOneGroupOut()
@@ -77,15 +77,15 @@ def evaluate_model(rank,balance,col_type):
             list_jobs_total[j].append(jobs[i])
         jobs = list_jobs_total
     else:
-        #initalizes variables to pass to other processors, size of X_embed is intialized correctly
-        X_embed = np.empty((47831, 768),dtype='d')
+        #initalizes variables to pass to other processors, size of X_data is intialized correctly
+        X_data = np.empty((47831, 768),dtype='d')
         y = None
         jobs = None
 
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
-    COMM.Bcast([X_embed, MPI.FLOAT], root=0)
+    COMM.Bcast([X_data, MPI.FLOAT], root=0)
 
     #run cross-validation on all the different processors
     results_init = []
@@ -105,26 +105,35 @@ def evaluate_model(rank,balance,col_type):
         print("Finished cross validation!")
         #flatten the total results
         results_final = [_i for temp in results_init for _i in temp]
-        f1s_macro = list()
-        f1s_micro = list()
-        f1s_weighted = list()
-        accuracys = list()
-        confusions = list()
+        y_test = list()
+        y_hat = list()
+        #f1s_macro = list()
+        #f1s_micro = list()
+        #f1s_weighted = list()
+        #accuracys = list()
+        #confusions = list()
         #compute the means of the results
-        for f1_macro, f1_micro, f1_weighted, accuracy, conf in results_final:
-            f1s_macro.append(f1_macro)
-            f1s_micro.append(f1_micro)
-            f1s_weighted.append(f1_weighted)
-            accuracys.append(accuracy)         
-            confusions.append(conf)
-        mean_f1_macro = np.mean(f1s_macro)    
-        mean_f1_micro = np.mean(f1s_micro)
-        mean_f1_weighted = np.mean(f1s_weighted)
-        mean_accuracy = np.mean(accuracys) 
+        for hat, test in results_final:
+            y_test += test
+            y_hat += hat
+            #f1s_macro.append(f1_macro)
+            #f1s_micro.append(f1_micro)
+            #f1s_weighted.append(f1_weighted)
+            #accuracys.append(accuracy)         
+            #confusions.append(conf)
+        mean_accuracy = accuracy_score(y_test, y_hat)
+        mean_f1_macro = f1_score(y_test, y_hat, average='macro')
+        mean_f1_micro = f1_score(y_test, y_hat, average='micro')
+        mean_f1_weighted = f1_score(y_test, y_hat, average='weighted')
+        conf_mean = confusion_matrix(y_test, y_hat)
+        #mean_f1_macro = np.mean(f1s_macro)    
+        #mean_f1_micro = np.mean(f1s_micro)
+        #mean_f1_weighted = np.mean(f1s_weighted)
+        #mean_accuracy = np.mean(accuracys) 
         results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
         #save the results to a csv file
         results.to_csv(model_name+'_final_cross_val.csv',index=False)
-        conf_mean = np.sum(confusions,axis=0) / len(confusions)
+        #conf_mean = np.sum(confusions,axis=0) / len(confusions)
         filename = model_name+'_matrix_mean.pkl'
         fileObject = open(filename, 'wb')
         pickle.dump(conf_mean, fileObject)
