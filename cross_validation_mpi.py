@@ -9,7 +9,7 @@ from mpi4py import MPI
 from imblearn.over_sampling import SMOTE
 #from d3m_profiler import rebalance
 #from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
-#from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
@@ -40,16 +40,11 @@ def evaluate_model(rank,balance,col_type):
         model.fit(X_train,y_train)
         #predict on the model
         y_hat = model.predict(X_data[test_ind])
-        y_test = y.iloc[test_ind].tolist()
-        #print(y_hat)
-        #print(y_test.value_counts())
-        #get the scores of results
-        #f1_macro = f1_score(y_test, y_hat, average='macro')
-        #f1_micro = f1_score(y_test, y_hat, average='micro')
-        #f1_weighted = f1_score(y_test, y_hat, average='weighted')
-        #accuracy = accuracy_score(y_test, y_hat)
-        #print(accuracy)
-        #conf = confusion_matrix(y_test, y_hat, labels=labels)
+        y_test = list(y.iloc[test_ind])
+        print(y_hat)
+        print(type(y_hat))
+        print(y_test)
+        print(type(y_test))
         print("Finished Fold!")
         return y_hat, y_test
   
@@ -109,29 +104,15 @@ def evaluate_model(rank,balance,col_type):
         results_final = [_i for temp in results_init for _i in temp]
         y_test = list()
         y_hat = list()
-        #f1s_macro = list()
-        #f1s_micro = list()
-        #f1s_weighted = list()
-        #accuracys = list()
-        #confusions = list()
         #compute the means of the results
         for hat, test in results_final:
             y_test += test
             y_hat += hat
-            #f1s_macro.append(f1_macro)
-            #f1s_micro.append(f1_micro)
-            #f1s_weighted.append(f1_weighted)
-            #accuracys.append(accuracy)         
-            #confusions.append(conf)
         mean_accuracy = accuracy_score(y_test, y_hat)
         mean_f1_macro = f1_score(y_test, y_hat, average='macro')
         mean_f1_micro = f1_score(y_test, y_hat, average='micro')
         mean_f1_weighted = f1_score(y_test, y_hat, average='weighted')
-        conf_mean = confusion_matrix(y_test, y_hat)
-        #mean_f1_macro = np.mean(f1s_macro)    
-        #mean_f1_micro = np.mean(f1s_micro)
-        #mean_f1_weighted = np.mean(f1s_weighted)
-        #mean_accuracy = np.mean(accuracys) 
+        conf_mean = confusion_matrix(y_test, y_hat) 
         results = results.append({'classifier': model_name, 'accuracy_score': mean_accuracy, 'f1_score_micro': mean_f1_micro, 'f1_score_macro': mean_f1_macro, 'f1_score_weighted': mean_f1_weighted}, ignore_index=True) 
         #save the results to a csv file
         results.to_csv(model_name+'_final_cross_val.csv',index=False)
@@ -144,17 +125,21 @@ def evaluate_model(rank,balance,col_type):
     
 if __name__ == "__main__":
     #define the model
-    model_name = 'Naive'
-    class NaiveModel:
-        def fit(self,X_train,y_train):
-            self.majority = y_train.value_counts().idxmax()
-        def predict(self,X_test):
-            y_hat = [self.majority for i in range(len(X_test))]
-            return y_hat
-    model = NaiveModel()
+    #model_name = 'Naive'
+    #class NaiveModel:
+    #    def fit(self,X_train,y_train):
+    #        self.majority = y_train.value_counts().idxmax()
+    #    def predict(self,X_test):
+    #        y_hat = [self.majority for i in range(len(X_test))]
+    #        return y_hat
+    #model = NaiveModel()
+    random_state = 32
+    model_name = 'RF'
+    model = RandomForestClassifier(max_depth=10,random_state=random_state)
+    
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(rank,balance=False,col_type=True)
+    results = evaluate_model(rank,balance=True,col_type=True)
     
 
 
