@@ -101,6 +101,8 @@ def evaluate_model(rank,balance,col_type):
     #compile and save the results
     if (rank == 0):
         jobs = list()
+        X_data = list()
+        y = list()
         results = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
         print("Finished cross validation!")
         #flatten the total results
