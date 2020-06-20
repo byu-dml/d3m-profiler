@@ -192,7 +192,7 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         conf = confusion_matrix(y_test, y_hat) 
-        results = pd.DataFrame(data=np.array([model_name, mean,f1_macro, f1_micro, f1_weighted]), columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
+        results = pd.DataFrame(data=np.array([model_name, accuracy, f1_macro, f1_micro, f1_weighted]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
         print(results)
         save_results(results) 
         return results
