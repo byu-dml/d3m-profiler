@@ -13,10 +13,10 @@ from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
-#from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB as GaussianNB
+#from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 #from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
 #from sklearn.pipeline import Pipeline
@@ -86,7 +86,7 @@ def naive_gen():
             y_hat = [self.majority for i in range(len(X_test))]
             return y_hat
     model = NaiveModel()
-    return model
+    return model, model_name
 
 def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None):
 
@@ -194,15 +194,16 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         conf = confusion_matrix(y_test, y_hat) 
-        results = pd.DataFrame(data=[model_name, accuracy, f1_macro, f1_micro, f1_weighted], columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
+        results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
         print(results)
         save_results(results, conf) 
         return results
     
 if __name__ == "__main__":
     random_state = 32
-    model_name = 'GNB'
-    model = GaussianNB() 
+    #model_name = 'RF'
+    #model = RandomForestClassifier(max_depth=10,random_state=random_state)
+    model, model_name = naive_gen()   
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
     evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
