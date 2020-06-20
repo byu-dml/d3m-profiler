@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pathlib as pl
 import pandas as pd
-from d3m_profiler.build_table import get_datasets
+#from d3m_profiler.build_table import get_datasets
 import json
 import time
 import pickle
@@ -69,12 +69,12 @@ def parse_datasets(datasets):
                     
     return np.asarray(raw_data), np.asarray(header), np.asarray(groups)
   
-def save_results(results):
+def save_results(results,conf):
     #save the results to a csv file
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
     filename = model_name+'_matrix_mean.pkl'
     fileObject = open(filename, 'wb')
-    pickle.dump(conf_mean, fileObject)
+    pickle.dump(conf, fileObject)
     fileObject.close()
     
 def naive_gen():
@@ -100,15 +100,18 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             k_neighbors = y_train.value_counts().min()-1
             assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
             #rebalance
-            print("balancing")
+            #print("balancing")
             smote = SMOTE(k_neighbors=k_neighbors)
             X_train, y_train = smote.fit_resample(X_train,y_train)       
-        #fit on  data
+        #fit on  datai
+        #print("fitting model")
         model.fit(X_train,y_train)
         #predict on the model
+        del X_train
+        del y_train
         y_hat = list(model.predict(X_data[test_ind]))
         y_test = list(y.iloc[test_ind])
-        print("Finished Fold!")
+        print("Finished Fold "+str(rank))
         return y_hat, y_test
   
     if (rank == 0):
@@ -137,7 +140,7 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))
             
         k_splitter = LeaveOneGroupOut()
-        split_num = k_splitter.get_n_splits(X_data, groups=groups)
+        #split_num = k_splitter.get_n_splits(X_data, groups=groups)
         jobs = list(k_splitter.split(X_data, groups=groups))
         #gets the jobs and splits them into even-sized-lists to be spread across the different cpu's
         list_jobs_total = [list() for i in range(COMM.size)]
@@ -151,7 +154,8 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             if (col_name is True):
                 X_data = np.empty((47831, 768),dtype='d')
             else:
-                X_data = np.empty((487831, 768*3), dtype='d')
+                print("bad")
+                X_data = np.empty((47831, 768*3), dtype='d')
         else:
                 X_data = np.empty((shape_data), dtype='d')  
         y = None
@@ -164,20 +168,18 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
 
     #run cross-validation on all the different processors
     results_init = []
-    print(np.shape(jobs))
     for job in jobs:
         train_ind, test_ind = job
         results_init.append(run_fold(train_ind, test_ind, balance=balance))
 
     #gather results together
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
-    jobs = list()
+    del jobs
 
     #compile and save the results
     if (rank == 0):
-        jobs = list()
-        X_data = list()
-        y = list()
+        del X_data
+        del y
         print("Finished cross validation!")
         #flatten the total results
         results_final = [_i for temp in results_init for _i in temp]
@@ -192,9 +194,9 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         conf = confusion_matrix(y_test, y_hat) 
-        results = pd.DataFrame(data=np.array([model_name, accuracy, f1_macro, f1_micro, f1_weighted]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
+        results = pd.DataFrame(data=[model_name, accuracy, f1_macro, f1_micro, f1_weighted], columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
         print(results)
-        save_results(results) 
+        save_results(results, conf) 
         return results
     
 if __name__ == "__main__":
@@ -203,8 +205,6 @@ if __name__ == "__main__":
     model = GaussianNB() 
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(balance=True,col_name=True,use_metadata=True, rank=rank)
+    evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
     
-
-
 
