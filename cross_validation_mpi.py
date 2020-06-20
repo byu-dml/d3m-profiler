@@ -13,10 +13,10 @@ from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
+#from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
-#from sklearn.naive_bayes import GaussianNB as GaussianNB
+from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 #from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
 #from sklearn.pipeline import Pipeline
@@ -69,7 +69,7 @@ def parse_datasets(datasets):
                     
     return np.asarray(raw_data), np.asarray(header), np.asarray(groups)
   
-def save_results(results: pd.dataFrame):
+def save_results(results):
     #save the results to a csv file
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
     filename = model_name+'_matrix_mean.pkl'
@@ -100,17 +100,14 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             k_neighbors = y_train.value_counts().min()-1
             assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
             #rebalance
+            print("balancing")
             smote = SMOTE(k_neighbors=k_neighbors)
             X_train, y_train = smote.fit_resample(X_train,y_train)       
         #fit on  data
         model.fit(X_train,y_train)
         #predict on the model
-        y_hat = model.predict(X_data[test_ind])
+        y_hat = list(model.predict(X_data[test_ind]))
         y_test = list(y.iloc[test_ind])
-        print(y_hat)
-        print(type(y_hat))
-        print(y_test)
-        print(type(y_test))
         print("Finished Fold!")
         return y_hat, y_test
   
@@ -140,8 +137,8 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))
             
         k_splitter = LeaveOneGroupOut()
-        split_num = k_splitter.get_n_splits(embed_df, groups=dataset_names)
-        jobs = list(k_splitter.split(embed_df, groups=dataset_names))
+        split_num = k_splitter.get_n_splits(X_data, groups=groups)
+        jobs = list(k_splitter.split(X_data, groups=groups))
         #gets the jobs and splits them into even-sized-lists to be spread across the different cpu's
         list_jobs_total = [list() for i in range(COMM.size)]
         for i in range(len(jobs)):
@@ -170,7 +167,7 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
     print(np.shape(jobs))
     for job in jobs:
         train_ind, test_ind = job
-        results_init.append(run_fold(train_ind, test_ind, balance=False))
+        results_init.append(run_fold(train_ind, test_ind, balance=balance))
 
     #gather results together
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
@@ -195,14 +192,15 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         f1_micro = f1_score(y_test, y_hat, average='micro')
         f1_weighted = f1_score(y_test, y_hat, average='weighted')
         conf = confusion_matrix(y_test, y_hat) 
-        results = results.append(data=[model_name, mean,f1_macro, f1_micro, f1_weighted], columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
+        results = pd.DataFrame(data=np.array([model_name, mean,f1_macro, f1_micro, f1_weighted]), columns=['classifier', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
+        print(results)
         save_results(results) 
         return results
     
 if __name__ == "__main__":
     random_state = 32
-    model_name = 'RF'
-    model = RandomForestClassifier(max_depth=10,random_state=random_state) 
+    model_name = 'GNB'
+    model = GaussianNB() 
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
     results = evaluate_model(balance=True,col_name=True,use_metadata=True, rank=rank)
