@@ -4,7 +4,7 @@ import os
 import pathlib as pl
 import pandas as pd
 #from d3m_profiler.build_table import get_datasets
-import json
+#import json
 import time
 import pickle
 import sys
@@ -16,58 +16,17 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
+#from sklearn.ensemble import GradientBoostingClassifier
+#from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 #from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 #from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
 #from sklearn.pipeline import Pipeline
 #from sklearn.decomposition import PCA
 #from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
-#from sklearn.neural_network import MLPClassifier as MLPClassifier
 
 DATASET_DIR = '/users/data/d3m/datasets/training_datasets'
 METADATA_PATH = '~/data/closed_d3m_unembed_data.csv'
-embed_col_path = ''
-embed_all_path = ''
-MAX_LEN = 20
-MAX_CELLS = 100
-
-def parse_datasets(datasets):
-    raw_data, header, groups = [], [], []
-    for dataset_id, dataset_doc_path in datasets.items():
-        # open the dataset doc to get the column headers
-        with open(dataset_doc_path, 'r') as dataset_doc:
-            meta_dataset = json.load(dataset_doc)
-            for resource in meta_dataset['dataResources']:
-                if 'columns' not in resource:
-                    continue
-                # then open the actual dataset table to get column values
-                if resource['resPath'][-4:] == '.csv':
-                    try:
-                        dataset = pd.read_csv(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath']))
-                    except:
-                        continue
-                else:
-                    values = 0
-                    tables = []
-                    for entry in os.scandir(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath'])):
-                        tables.append(pd.read_csv(entry.path))
-                        values += len(tables[-1])
-                        if values >= MAX_CELLS:
-                            break
-                    dataset = pd.concat(tables, ignore_index=True)
-
-                for column in resource['columns']:
-                    values = list(dataset[column['colName']].values)
-                    if len(values) > MAX_CELLS:
-                        values = [str(v)[:MAX_LEN] for v in values[:MAX_CELLS]]
-                    else:
-                        values = [str(v)[:MAX_LEN] for v in values] + ['' for i in range(MAX_CELLS - len(values))]
-
-                    raw_data.append(values)
-                    header.append((column['colType'],))
-                    groups.append(meta_dataset['about']['datasetName'])
-                    
-    return np.asarray(raw_data), np.asarray(header), np.asarray(groups)
   
 def save_results(results,conf):
     #save the results to a csv file
@@ -129,13 +88,14 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
                 groups = data['datasetName']
             else:
                 type_column = 'colType'
-                closed_embed = 'embedded_d3m_closed_all.csv'
+                closed_embed = 'closed_embed_all.csv'
                 print("loading file")
                 data = pd.read_csv(closed_embed)
                 print("Done loading!")
-                X_data = data.drop(['colType','datasestName'],axis=1).to_numpy()
+                X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
                 y = data['colType']
                 groups = data['datasetName']
+                print(np.shape(X_data))
         else:
             X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))
             
@@ -154,7 +114,6 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             if (col_name is True):
                 X_data = np.empty((47831, 768),dtype='d')
             else:
-                print("bad")
                 X_data = np.empty((47831, 768*3), dtype='d')
         else:
                 X_data = np.empty((shape_data), dtype='d')  
@@ -198,14 +157,23 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         print(results)
         save_results(results, conf) 
         return results
-    
-if __name__ == "__main__":
+ 
+if __name__ == "__main__":   
     random_state = 32
-    #model_name = 'RF'
-    #model = RandomForestClassifier(max_depth=10,random_state=random_state)
-    model, model_name = naive_gen()   
+    model_name = 'RF_All'
+    model = RandomForestClassifier(random_state=random_state)
+    #model_name = "Naive"
+    #class NaiveModel:
+    #    def fit(self,X_train,y_train):
+    #        self.majority = y_train.value_counts().idxmax()
+    #    def predict(self,X_test):
+    #        y_hat = [self.majority for i in range(len(X_test))]
+    #        return y_hat
+    print("starting "+str(model_name))
+    #model = NaiveModel()   
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
+    results = evaluate_model(balance=True, col_name=False, use_metadata=True, rank=rank)
     
-
+else:
+    print("hi")
