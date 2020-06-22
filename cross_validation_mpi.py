@@ -61,7 +61,8 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             #rebalance
             #print("balancing")
             smote = SMOTE(k_neighbors=k_neighbors)
-            X_train, y_train = smote.fit_resample(X_train,y_train)       
+            X_train, y_train = smote.fit_resample(X_train,y_train)
+        print(y_train.value_counts())       
         #fit on  datai
         #print("fitting model")
         model.fit(X_train,y_train)
@@ -173,7 +174,7 @@ if __name__ == "__main__":
     #model = NaiveModel()   
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(balance=True, col_name=False, use_metadata=True, rank=rank)
+    results = evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
     
 else:
     print("hi")
