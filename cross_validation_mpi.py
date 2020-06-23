@@ -10,6 +10,7 @@ import pickle
 import sys
 from mpi4py import MPI
 from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import BorderlineSMOTE, ADASYN
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
@@ -60,8 +61,15 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
             #rebalance
             #print("balancing")
-            smote = SMOTE(k_neighbors=k_neighbors)
+            begin = time.time()
+            #smote = ADASYN(resample='not majority',n_neighbors=k_neighbors,random_state=32)
+            #smote = SMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
+            smote = BorderlineSMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
+
+            #smote = SVMSMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
             X_train, y_train = smote.fit_resample(X_train,y_train)
+            end = time.time()
+            print("Time to rebalance: "+str(np.round(end-begin,3)))
         print(y_train.value_counts())       
         #fit on  datai
         #print("fitting model")
@@ -125,7 +133,11 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     COMM.Bcast([X_data, MPI.FLOAT], root=0)
-
+    print("Jobs")
+    print(jobs)
+    print()
+    print("Data")
+    print(X_data)
     #run cross-validation on all the different processors
     results_init = []
     for job in jobs:
@@ -161,7 +173,7 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
  
 if __name__ == "__main__":   
     random_state = 32
-    model_name = 'RF_All'
+    model_name = 'RF_bal_border'
     model = RandomForestClassifier(random_state=random_state)
     #model_name = "Naive"
     #class NaiveModel:
