@@ -4,7 +4,6 @@ import sys
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 _NUM_THREAD = (mp.cpu_count() - 1)
 
@@ -18,22 +17,22 @@ def initialize_model(model_path):
     
 def embed(df: pd.DataFrame, model_weights_path: str):
     model = initialize_model(model_weights_path)
-
+    index = df.index.to_list()
     dataset_names = df['datasetName']
+    col_types = df['colType']
     print("Starting Embedding")
-    dataset_name_embs = model.encode(df['datasetName'].to_numpy())
-    print("done_1!")
-    description_embs = model.encode(df['description'].to_numpy())
-    print("done_2!")
-    col_name_embs = model.encode(df['colName'].to_numpy())
+    #dataset_name_embs = model.encode(df['datasetName'].to_numpy())
+    #print("done_1!")
+    #description_embs = model.encode(df['description'].to_numpy())
+    #print("done_2!")
+    col_name_embs = model.encode(df['colName'].str.lower().to_numpy())
     #print(np.shape(col_name_embs))
     #print(np.shape(description_embs))
-    col_types = df['colType']
 
     group_type_df = pd.DataFrame({'datasetName': dataset_names, 'colType': col_types})
-    embeddings_df = pd.DataFrame(data=np.hstack((dataset_name_embs, description_embs, col_name_embs)), columns=['emb_{}'.format(i) for i in range(3*len(col_name_embs[0]))])
+    embeddings_df = pd.DataFrame(data=col_name_embs, columns=['emb_{}'.format(i) for i in range(len(col_name_embs[0]))],index=index)
 
-    return pd.concat([group_type_df.reset_index(), embeddings_df.reset_index()], axis=1).drop(['index'],axis=1)
+    return pd.concat([group_type_df, embeddings_df], axis=1)
 
 if __name__=="__main__":
     #load the original csv
@@ -52,7 +51,7 @@ if __name__=="__main__":
     mp_pool.close()
     mp_pool.join()
     
-    df = pd.concat(results,axis=0).reset_index().drop(['index'],axis=1)
+    df = pd.concat(results,axis=0)
     #save the results
-    df.to_csv('closed_embed_all.csv',index=False)
+    df.to_csv('closed_embed_all_lower.csv',index=False)
     
