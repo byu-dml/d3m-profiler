@@ -20,16 +20,15 @@ from sklearn.pipeline import Pipeline
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 
   
-def save_results(results,conf):
+def save_results(results, conf_matrix, model_name: str):
     #save the results to a csv file
     results.to_csv(model_name+'_final_cross_val.csv',index=False)
     filename = model_name+'_matrix_mean.pkl'
     fileObject = open(filename, 'wb')
-    pickle.dump(conf, fileObject)
+    pickle.dump(conf_matrix, fileObject)
     fileObject.close()
     
 def naive_gen():
-    model_name = 'Naive'
     class NaiveModel:
         def fit(self,X_train,y_train):
             self.majority = y_train.value_counts().idxmax()
@@ -37,9 +36,9 @@ def naive_gen():
             y_hat = [self.majority for i in range(len(X_test))]
             return y_hat
     model = NaiveModel()
-    return model, model_name
+    return model
     
-def balance(X_train, y_train, sampling_method, random_state=23):
+def balance_data(X_train, y_train, sampling_method, random_state=23):
     begin = time.time()
     k_neighbors = y_train.value_counts().min()-1
     if (k_neighbors <= 1):
@@ -49,7 +48,7 @@ def balance(X_train, y_train, sampling_method, random_state=23):
     elif (sampling_method == 'ADASYN'):
         smote = ADASYN(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=random_state)
     elif (sampling_method == 'SMOTE'):
-        smote = SMOTE(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=random_state)
+        smote = SMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=random_state)
     else:
         raise ValueError("Sampling method not available")
     #rebalance the data
@@ -58,13 +57,13 @@ def balance(X_train, y_train, sampling_method, random_state=23):
     print("Time to rebalance: "+str(np.round(end-begin,3)))
     return X_train, y_train
      
-def fit_predict_model(X_data, y, train_ind, test_ind, balance=True):
+def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=None):
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
     #get the labels for the confusion matrix
     if (balance == True):
-        X_train, y_train = balance(X_train, y_train, 'SMOTE')     
+        X_train, y_train = balance_data(X_train, y_train, 'SMOTE')     
     #fit on  data
     model.fit(X_train,y_train)
     del X_train
@@ -75,7 +74,7 @@ def fit_predict_model(X_data, y, train_ind, test_ind, balance=True):
     print("Finished Fold "+str(rank))
     return y_hat, y_test
     
-def compile_results(results_final: list):
+def compile_results(model_name:str, results_final: list):
     y_test = list()
     y_hat = list()
     #compute the results
@@ -86,9 +85,9 @@ def compile_results(results_final: list):
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
-    conf = confusion_matrix(y_test, y_hat) 
+    conf_matrix = confusion_matrix(y_test, y_hat) 
     results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
-    save_results(results, conf) 
+    save_results(results, conf_matrix, model_name = model_name) 
     return results
     
 def get_from_csv(data_file: str):
@@ -101,13 +100,13 @@ def get_from_csv(data_file: str):
 def get_jobs_list(X_data, groups, size: int, cross_type):
     splitter = cross_type
     jobs = list(splitter.split(X_data, groups=groups))
-    list_jobs_total = [list() for i in range(COMM.size)]
+    list_jobs_total = [list() for i in range(size)]
     for i in range(len(jobs)):
-        j = i % COMM.size
+        j = i % size
         list_jobs_total[j].append(jobs[i])
     return list_jobs_total
     
-def get_variables(use_col_name_only, use_metadata, rank):
+def get_variables(use_col_name_only, use_metadata, rank, size: int):
     if (rank == 0):
         if (use_metadata):
             if (use_col_name_only is True):
@@ -119,7 +118,7 @@ def get_variables(use_col_name_only, use_metadata, rank):
         else:
             X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))     
         #format jobs list to split across processors
-        jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=LeaveOneGroupOut())  
+        jobs = get_jobs_list(X_data = X_data, groups = groups, size=size, cross_type=LeaveOneGroupOut())  
     else:
         if (use_metadata):
             if (use_col_name_only is True):
@@ -133,9 +132,12 @@ def get_variables(use_col_name_only, use_metadata, rank):
     
     return X_data, jobs, y
          
-def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model, rank=None):   
+def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model):   
+    #start the MPI
+    COMM = MPI.COMM_WORLD
+    rank = COMM.rank
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(use_col_name_only = use_col_name_only, use_metadata = use_metadata, rank = rank)
+    X_data, jobs, y = get_variables(use_col_name_only = use_col_name_only, use_metadata = use_metadata, rank = rank, size = COMM.size)
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
@@ -144,7 +146,7 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, m
     results_init = []
     for job in jobs:
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, balance=balance))
+        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, model, balance=balance,rank=rank))
     #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
@@ -162,8 +164,8 @@ if __name__ == "__main__":
     #pca = PCA(n_components='mle',random_state=random_state)
     #rf = RandomForestClassifier(random_state=random_state)
     #model = Pipeline(steps=[('pca',pca),('rf',rf)])  
-    COMM = MPI.COMM_WORLD
-    rank = COMM.rank
-    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, model_name = 'Naive', model = naive_gen(), rank=rank)
+    #COMM = MPI.COMM_WORLD
+    #rank = COMM.rank
+    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, model_name = 'Naive', model = naive_gen())
     
     
