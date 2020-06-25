@@ -19,15 +19,7 @@ from sklearn.pipeline import Pipeline
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
 
-  
-def save_results(results, conf_matrix, model_name: str):
-    #save the results to a csv file
-    results.to_csv(model_name+'_final_cross_val.csv',index=False)
-    filename = model_name+'_matrix_mean.pkl'
-    fileObject = open(filename, 'wb')
-    pickle.dump(conf_matrix, fileObject)
-    fileObject.close()
-    
+
 def naive_gen():
     class NaiveModel:
         def fit(self,X_train,y_train):
@@ -37,6 +29,22 @@ def naive_gen():
             return y_hat
     model = NaiveModel()
     return model
+    
+def rf_pca(random_state_1=15,random_state_2=20):
+    #defines the Random Foest PCA model
+    model_name = 'RF_PCA_lower_border'
+    pca = PCA(n_components='mle',random_state=random_state_1)
+    rf = RandomForestClassifier(random_state=random_state_2)
+    model = Pipeline(steps=[('pca',pca),('rf',rf)])  
+    return model
+  
+def save_results(results, conf_matrix, model_name: str):
+    #save the results to a csv file
+    results.to_csv(model_name+'_final_cross_val.csv',index=False)
+    filename = model_name+'_matrix_mean.pkl'
+    fileObject = open(filename, 'wb')
+    pickle.dump(conf_matrix, fileObject)
+    fileObject.close()
     
 def balance_data(X_train, y_train, sampling_method, random_state=23):
     begin = time.time()
@@ -71,7 +79,8 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     #predict on the model
     y_hat = list(model.predict(X_data[test_ind]))
     y_test = list(y.iloc[test_ind])
-    print("Finished Fold "+str(rank))
+    if (rank is not None):
+        print("Finished Fold "+str(rank))
     return y_hat, y_test
     
 def compile_results(model_name:str, results_final: list):
@@ -159,13 +168,6 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, m
         results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model_name)
  
 if __name__ == "__main__":   
-    random_state = 32
-    #model_name = 'RF_PCA_lower_border'
-    #pca = PCA(n_components='mle',random_state=random_state)
-    #rf = RandomForestClassifier(random_state=random_state)
-    #model = Pipeline(steps=[('pca',pca),('rf',rf)])  
-    #COMM = MPI.COMM_WORLD
-    #rank = COMM.rank
     results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, model_name = 'Naive', model = naive_gen())
     
     
