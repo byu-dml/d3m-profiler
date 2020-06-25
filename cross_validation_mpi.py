@@ -3,8 +3,6 @@ import numpy as np
 import os
 import pathlib as pl
 import pandas as pd
-#from d3m_profiler.build_table import get_datasets
-#import json
 import time
 import pickle
 import sys
@@ -19,17 +17,8 @@ from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
-#from sklearn.ensemble import GradientBoostingClassifier
-#from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-#from sklearn.naive_bayes import GaussianNB as GaussianNB
 #from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QuadraticDiscriminantAnalysis
-#from sklearn.neighbors import KNeighborsClassifier as KNeighborsClassifier
-#from sklearn.pipeline import Pipeline
-#from sklearn.decomposition import PCA
-#from sklearn.tree import DecisionTreeClassifier as DecisionTreeClassifier
 
-DATASET_DIR = '/users/data/d3m/datasets/training_datasets'
-METADATA_PATH = '~/data/closed_d3m_unembed_data.csv'
   
 def save_results(results,conf):
     #save the results to a csv file
@@ -49,97 +38,118 @@ def naive_gen():
             return y_hat
     model = NaiveModel()
     return model, model_name
-
-def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None):
-
-    def run_fold(train_ind, test_ind, balance=True):
-        #now fit using the indeces given by the kfold splitter
-        X_train = X_data[train_ind]
-        y_train = y.iloc[train_ind]
-        #get the labels for the confusion matrix
-        if (balance == True):
-            #get the k_neighbors balance number
-            k_neighbors = y_train.value_counts().min()-1
-            assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
-            #rebalance
-            #print("balancing")
-            begin = time.time()
-            #smote = ADASYN(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=32)
-            #smote = SMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
-            smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
-
-            #smote = SVMSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
-            X_train, y_train = smote.fit_resample(X_train,y_train)
-            end = time.time()
-            print("Time to rebalance: "+str(np.round(end-begin,3)))       
-        #fit on  data
-        model.fit(X_train,y_train)
-        #predict on the model
-        del X_train
-        del y_train
-        y_hat = list(model.predict(X_data[test_ind]))
-        y_test = list(y.iloc[test_ind])
-        print("Finished Fold "+str(rank))
-        return y_hat, y_test
-  
-    if (rank == 0):
-        print("Beginning cross validation")
-        if (use_metadata):
-            if (col_name is True):
-                type_column = 'colType'
-                closed_embed = 'closed_embed_lower.csv'    
-                print("loading file")
-                data = pd.read_csv(closed_embed)
-                print("Done loading!")
-                #do shuffled cross validation, but that can also be replicated
-                X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
-                y = data['colType']
-                groups = data['datasetName']
-            else:
-                type_column = 'colType'
-                closed_embed = 'closed_embed_all.csv'
-                print("loading file")
-                data = pd.read_csv(closed_embed)
-                print("Done loading!")
-                X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
-                y = data['colType']
-                groups = data['datasetName']
-                print(np.shape(X_data))
+    
+def run_fold(train_ind, test_ind, balance=True):
+    #now fit using the indeces given by the kfold splitter
+    X_train = X_data[train_ind]
+    y_train = y.iloc[train_ind]
+    #get the labels for the confusion matrix
+    if (balance == True):
+        #get the k_neighbors balance number
+        k_neighbors = y_train.value_counts().min()-1
+        assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+        #rebalance
+        #print("balancing")
+        begin = time.time()
+        smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
+        X_train, y_train = smote.fit_resample(X_train,y_train)
+        end = time.time()
+        print("Time to rebalance: "+str(np.round(end-begin,3)))       
+    #fit on  data
+    model.fit(X_train,y_train)
+    #predict on the model
+    del X_train
+    del y_train
+    y_hat = list(model.predict(X_data[test_ind]))
+    y_test = list(y.iloc[test_ind])
+    print("Finished Fold "+str(rank))
+    return y_hat, y_test
+    
+def compile_results(results_final: list):
+    y_test = list()
+    y_hat = list()
+    #compute the results
+    for hat, test in results_final:
+        y_test += test
+        y_hat += hat
+    accuracy = accuracy_score(y_test, y_hat)
+    f1_macro = f1_score(y_test, y_hat, average='macro')
+    f1_micro = f1_score(y_test, y_hat, average='micro')
+    f1_weighted = f1_score(y_test, y_hat, average='weighted')
+    conf = confusion_matrix(y_test, y_hat) 
+    results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
+    save_results(results, conf) 
+    return results
+    
+def get_from_csv(data_file: str):
+    data = pd.read_csv(closed_embed)
+    X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
+    y = data['colType']
+    groups = data['datasetName']
+    return X_data, y, groups
+    
+def get_jobs_list(X_data, groups, size: int, cross_type):
+    splitter = cross_type
+    jobs = list(splitter.split(X_data, groups=groups)
+    list_jobs_total = [list() for i in range(COMM.size)]
+    for i in range(len(jobs)):
+        j = i % COMM.size
+        list_jobs_total[j].append(jobs[i])
+    return return list_jobs_total
+    
+def initialize_variables(col_name, use_metadata):
+    if (use_metadata):
+        if (col_name is True):
+            X_data = np.empty((47831, 768), dtype='d')
         else:
-            X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))
-            
-        k_splitter = LeaveOneGroupOut()
-        #split_num = k_splitter.get_n_splits(X_data, groups=groups)
-        jobs = list(k_splitter.split(X_data, groups=groups))
-        #gets the jobs and splits them into even-sized-lists to be spread across the different cpu's
-        list_jobs_total = [list() for i in range(COMM.size)]
-        for i in range(len(jobs)):
-            j = i % COMM.size
-            list_jobs_total[j].append(jobs[i])
-        jobs = list_jobs_total
+            X_data = np.empty((47831, 768*3), dtype='d')
     else:
-        #initalizes variables to pass to other processors, size of X_data must be intialized correctly
+        X_data = np.empty((shape_SIMON), dtype='d')
+    jobs = None
+    y = None
+    return X_data, jobs, y
+    
+def get_variables(col_name, use_metadata, rank):
+    if (rank == 0):
         if (use_metadata):
             if (col_name is True):
-                X_data = np.empty((47831, 768),dtype='d')
+                closed_embed = 'closed_embed_lower.csv' 
+                X_data, y, groups = get_from_csv(data_file = closed_embed)   
+            else:
+                closed_embed = 'closed_embed_all.csv'
+                X_data, y, groups = get_from_csv(data_file = closed_embed)
+        else:
+            X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))     
+        #format jobs list to split across processors
+        jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=LeaveOneGroupOut())  
+    else:
+        if (use_metadata):
+            if (col_name is True):
+                X_data = np.empty((47831, 768), dtype='d')
             else:
                 X_data = np.empty((47831, 768*3), dtype='d')
         else:
-                X_data = np.empty((shape_data), dtype='d')  
-        y = None
+            X_data = np.empty((shape_SIMON), dtype='d')
         jobs = None
+        y = None
+    
+    return X_data, jobs, y
+         
+def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None):   
+    #get the variables for cross validation
+    X_data, jobs, y = get_variables(col_name = col_name, use_metadata = use_metadata, rank = rank)
            
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     COMM.Bcast([X_data, MPI.FLOAT], root=0)
+    
     #run cross-validation on all the different processors
     results_init = []
     for job in jobs:
         train_ind, test_ind = job
         results_init.append(run_fold(train_ind, test_ind, balance=balance))
-
-    #gather results together
+    #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
 
@@ -148,42 +158,14 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         del X_data
         del y
         print("Finished cross validation!")
-        #flatten the total results
-        results_final = [_i for temp in results_init for _i in temp]
-        y_test = list()
-        y_hat = list()
-        #compute the results
-        for hat, test in results_final:
-            y_test += test
-            y_hat += hat
-        accuracy = accuracy_score(y_test, y_hat)
-        f1_macro = f1_score(y_test, y_hat, average='macro')
-        f1_micro = f1_score(y_test, y_hat, average='micro')
-        f1_weighted = f1_score(y_test, y_hat, average='weighted')
-        conf = confusion_matrix(y_test, y_hat) 
-        results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
-        print(results)
-        save_results(results, conf) 
-        return results
+        results = compile_results(results_final = [_i for temp in results_init for _i in temp])
  
 if __name__ == "__main__":   
     random_state = 32
     model_name = 'RF_PCA_lower_border'
     pca = PCA(n_components='mle',random_state=random_state)
     rf = RandomForestClassifier(random_state=random_state)
-    model = Pipeline(steps=[('pca',pca),('rf',rf)])
-    #model_name = "Naive"
-    #class NaiveModel:
-    #    def fit(self,X_train,y_train):
-    #        self.majority = y_train.value_counts().idxmax()
-    #    def predict(self,X_test):
-    #        y_hat = [self.majority for i in range(len(X_test))]
-    #        return y_hat
-    print("starting "+str(model_name))
-    #model = NaiveModel()   
+    model = Pipeline(steps=[('pca',pca),('rf',rf)])  
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
     results = evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
-    
-else:
-    print("hi")
