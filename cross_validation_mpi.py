@@ -39,27 +39,37 @@ def naive_gen():
     model = NaiveModel()
     return model, model_name
     
+def balance(X_train, y_train, sampling_method, random_state=23):
+    begin = time.time()
+    k_neighbors = y_train.value_counts().min()-1
+    if (k_neighbors <= 1):
+        raise ValueError("Not enough data to rebalance. Must be more than 1.")
+    if (sampling_method == 'BorderlineSMOTE'):
+        smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=random_state)
+    elif (sampling_method == 'ADASYN'):
+        smote = ADASYN(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=random_state)
+    elif (sampling_method == 'SMOTE'):
+        smote = SMOTE(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=random_state)
+    else:
+        raise ValueError("Sampling method not available")
+    #rebalance the data
+    X_train, y_train = smote.fit_resample(X_train, y_train)
+    end = time.time()
+    print("Time to rebalance: "+str(np.round(end-begin,3)))
+    return X_train, y_train
+     
 def fit_predict_model(X_data, y, train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
     #get the labels for the confusion matrix
     if (balance == True):
-        #get the k_neighbors balance number
-        k_neighbors = y_train.value_counts().min()-1
-        assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
-        #rebalance
-        #print("balancing")
-        begin = time.time()
-        smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
-        X_train, y_train = smote.fit_resample(X_train,y_train)
-        end = time.time()
-        print("Time to rebalance: "+str(np.round(end-begin,3)))       
+        X_train, y_train = balance(X_train, y_train, 'SMOTE')     
     #fit on  data
     model.fit(X_train,y_train)
-    #predict on the model
     del X_train
     del y_train
+    #predict on the model
     y_hat = list(model.predict(X_data[test_ind]))
     y_test = list(y.iloc[test_ind])
     print("Finished Fold "+str(rank))
@@ -123,7 +133,7 @@ def get_variables(use_col_name_only, use_metadata, rank):
     
     return X_data, jobs, y
          
-def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, rank=None):   
+def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model, rank=None):   
     #get the variables for cross validation
     X_data, jobs, y = get_variables(use_col_name_only = use_col_name_only, use_metadata = use_metadata, rank = rank)
     #get the values from the root processor
@@ -144,15 +154,16 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, r
         del X_data
         del y
         print("Finished cross validation!")
-        results = compile_results(results_final = [_i for temp in results_init for _i in temp])
+        results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model_name)
  
 if __name__ == "__main__":   
     random_state = 32
     #model_name = 'RF_PCA_lower_border'
     #pca = PCA(n_components='mle',random_state=random_state)
     #rf = RandomForestClassifier(random_state=random_state)
-    #model = Pipeline(steps=[('pca',pca),('rf',rf)])
-    model, model_name = naive_gen()  
+    #model = Pipeline(steps=[('pca',pca),('rf',rf)])  
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, rank=rank)
+    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, model_name = 'Naive', model = naive_gen(), rank=rank)
+    
+    
