@@ -95,19 +95,7 @@ def get_jobs_list(X_data, groups, size: int, cross_type):
     for i in range(len(jobs)):
         j = i % COMM.size
         list_jobs_total[j].append(jobs[i])
-    return return list_jobs_total
-    
-def initialize_variables(col_name, use_metadata):
-    if (use_metadata):
-        if (col_name is True):
-            X_data = np.empty((47831, 768), dtype='d')
-        else:
-            X_data = np.empty((47831, 768*3), dtype='d')
-    else:
-        X_data = np.empty((shape_SIMON), dtype='d')
-    jobs = None
-    y = None
-    return X_data, jobs, y
+    return list_jobs_total
     
 def get_variables(col_name, use_metadata, rank):
     if (rank == 0):
