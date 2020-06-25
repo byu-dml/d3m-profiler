@@ -39,7 +39,7 @@ def naive_gen():
     model = NaiveModel()
     return model, model_name
     
-def fit_predict_model(train_ind, test_ind, balance=True):
+def fit_predict_model(X_data, y, train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
@@ -82,7 +82,7 @@ def compile_results(results_final: list):
     return results
     
 def get_from_csv(data_file: str):
-    data = pd.read_csv(closed_embed)
+    data = pd.read_csv(data_file)
     X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
     y = data['colType']
     groups = data['datasetName']
@@ -90,7 +90,7 @@ def get_from_csv(data_file: str):
     
 def get_jobs_list(X_data, groups, size: int, cross_type):
     splitter = cross_type
-    jobs = list(splitter.split(X_data, groups=groups)
+    jobs = list(splitter.split(X_data, groups=groups))
     list_jobs_total = [list() for i in range(COMM.size)]
     for i in range(len(jobs)):
         j = i % COMM.size
@@ -134,7 +134,7 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, r
     results_init = []
     for job in jobs:
         train_ind, test_ind = job
-        results_init.append(run_fold(train_ind, test_ind, balance=balance))
+        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, balance=balance))
     #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
@@ -148,10 +148,11 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, r
  
 if __name__ == "__main__":   
     random_state = 32
-    model_name = 'RF_PCA_lower_border'
-    pca = PCA(n_components='mle',random_state=random_state)
-    rf = RandomForestClassifier(random_state=random_state)
-    model = Pipeline(steps=[('pca',pca),('rf',rf)])  
+    #model_name = 'RF_PCA_lower_border'
+    #pca = PCA(n_components='mle',random_state=random_state)
+    #rf = RandomForestClassifier(random_state=random_state)
+    #model = Pipeline(steps=[('pca',pca),('rf',rf)])
+    model, model_name = naive_gen()  
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(balance=True, use_col_name_only=True, use_metadata=True, rank=rank)
+    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, rank=rank)
