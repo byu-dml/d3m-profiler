@@ -39,7 +39,7 @@ def naive_gen():
     model = NaiveModel()
     return model, model_name
     
-def run_fold(train_ind, test_ind, balance=True):
+def fit_predict_model(train_ind, test_ind, balance=True):
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
@@ -97,10 +97,10 @@ def get_jobs_list(X_data, groups, size: int, cross_type):
         list_jobs_total[j].append(jobs[i])
     return list_jobs_total
     
-def get_variables(col_name, use_metadata, rank):
+def get_variables(use_col_name_only, use_metadata, rank):
     if (rank == 0):
         if (use_metadata):
-            if (col_name is True):
+            if (use_col_name_only is True):
                 closed_embed = 'closed_embed_lower.csv' 
                 X_data, y, groups = get_from_csv(data_file = closed_embed)   
             else:
@@ -112,7 +112,7 @@ def get_variables(col_name, use_metadata, rank):
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=LeaveOneGroupOut())  
     else:
         if (use_metadata):
-            if (col_name is True):
+            if (use_col_name_only is True):
                 X_data = np.empty((47831, 768), dtype='d')
             else:
                 X_data = np.empty((47831, 768*3), dtype='d')
@@ -123,15 +123,13 @@ def get_variables(col_name, use_metadata, rank):
     
     return X_data, jobs, y
          
-def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None):   
+def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, rank=None):   
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(col_name = col_name, use_metadata = use_metadata, rank = rank)
-           
+    X_data, jobs, y = get_variables(use_col_name_only = use_col_name_only, use_metadata = use_metadata, rank = rank)
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     COMM.Bcast([X_data, MPI.FLOAT], root=0)
-    
     #run cross-validation on all the different processors
     results_init = []
     for job in jobs:
@@ -156,4 +154,4 @@ if __name__ == "__main__":
     model = Pipeline(steps=[('pca',pca),('rf',rf)])  
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
-    results = evaluate_model(balance=True, col_name=True, use_metadata=True, rank=rank)
+    results = evaluate_model(balance=True, use_col_name_only=True, use_metadata=True, rank=rank)
