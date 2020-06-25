@@ -15,6 +15,8 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
 #from sklearn.neural_network import MLPClassifier as MLPClassifier
 #from sklearn.ensemble import AdaBoostClassifier as AdaBoostClassifier
 #from sklearn.ensemble import GradientBoostingClassifier
@@ -62,17 +64,15 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
             #rebalance
             #print("balancing")
             begin = time.time()
-            #smote = ADASYN(resample='not majority',n_neighbors=k_neighbors,random_state=32)
-            #smote = SMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
-            smote = BorderlineSMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
+            #smote = ADASYN(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=32)
+            #smote = SMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
+            smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
 
-            #smote = SVMSMOTE(resample='not majority',k_neighbors=k_neighbors,random_state=32)
+            #smote = SVMSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=32)
             X_train, y_train = smote.fit_resample(X_train,y_train)
             end = time.time()
-            print("Time to rebalance: "+str(np.round(end-begin,3)))
-        print(y_train.value_counts())       
-        #fit on  datai
-        #print("fitting model")
+            print("Time to rebalance: "+str(np.round(end-begin,3)))       
+        #fit on  data
         model.fit(X_train,y_train)
         #predict on the model
         del X_train
@@ -87,7 +87,7 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
         if (use_metadata):
             if (col_name is True):
                 type_column = 'colType'
-                closed_embed = 'embedded_d3m_closed.csv'    
+                closed_embed = 'closed_embed_lower.csv'    
                 print("loading file")
                 data = pd.read_csv(closed_embed)
                 print("Done loading!")
@@ -133,11 +133,6 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     COMM.Bcast([X_data, MPI.FLOAT], root=0)
-    print("Jobs")
-    print(jobs)
-    print()
-    print("Data")
-    print(X_data)
     #run cross-validation on all the different processors
     results_init = []
     for job in jobs:
@@ -173,8 +168,10 @@ def evaluate_model(balance: bool, col_name: bool, use_metadata: bool, rank=None)
  
 if __name__ == "__main__":   
     random_state = 32
-    model_name = 'RF_bal_border'
-    model = RandomForestClassifier(random_state=random_state)
+    model_name = 'RF_PCA_lower_border'
+    pca = PCA(n_components='mle',random_state=random_state)
+    rf = RandomForestClassifier(random_state=random_state)
+    model = Pipeline(steps=[('pca',pca),('rf',rf)])
     #model_name = "Naive"
     #class NaiveModel:
     #    def fit(self,X_train,y_train):
