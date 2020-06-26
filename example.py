@@ -81,7 +81,7 @@ for _file in files:
     if (not balanced):
         # re-fitting with a balanced training set
         print('rebalancing {} data collection'.format(data_collection))
-        train_rebal_df = rebalance.rebalance_SMOTE(train_df, type_column, 'smote', model_weights_path)
+        train_rebal_df = rebalance.rebalance_SMOTE(train_df, type_column, 'smote')
         xtrain, ytrain = split_X_and_y(train_rebal_df)
         results = results.append(fit(RandomForestClassifier, xtrain, ytrain, xtest, ytest, isBalanced=True), ignore_index=True)
 
