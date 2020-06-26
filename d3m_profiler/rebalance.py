@@ -137,9 +137,13 @@ Returns
 rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
-def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
+def embed_and_rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
     embedded_df = embed(df, type_column, model_weights_path)
 
+    return rebalance_SMOTE(embedded_df, type_column, model_weights_path)
+    
+
+def rebalance_SMOTE(embedded_df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
     k_neighbors = (embedded_df[type_column].value_counts().min() - 1)
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
 
@@ -147,5 +151,4 @@ def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weigh
     
     X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
     
-    return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
-    
+    return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, embedded_df)

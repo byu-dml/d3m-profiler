@@ -19,7 +19,6 @@ _NUM_THREADS = mp.cpu_count()
 results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'accuracy_score', 'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
 
-
 #closed_bal_file = 'data/closed_d3m_bal.csv'
 #closed_unbal_file = 'data/closed_d3m_unbal.csv'
 
@@ -31,74 +30,60 @@ results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'ac
 type_column = 'colType'
 model_weights_path = 'torontobooks_unigrams.bin'
 
-open_d3m_file = 'data/open_d3m_data.csv'
-closed_d3m_file = 'data/closed_d3m_data.csv'
+open_d3m_file = '~/data/open_d3m_unembed_data.csv'
+closed_d3m_file = '~/data/closed_d3m_unembed_data.csv'
 
-files = [open_d3m_file]
+#files = [open_d3m_file]
 #files = [open_d3m_file, closed_d3m_file]
-#files = [closed_d3m_file, open_d3m_file]
+files = [closed_d3m_file, open_d3m_file]
+
+def fit(model_class, xtrain, ytrain, xtest, ytest, isBalanced, dump=False):
+    print('evaluating model: {}'.format(model_class.__name__))
+    model = model_class()
+    print('fitting model...')
+    model.fit(xtrain, ytrain)
+
+    if (isBalanced and dump):
+        filename = 'RF_public_model.sav'
+        pickle.dump(model, open(filename, 'wb'))
+
+    yhat = model.predict(xtest)
+    accuracy = accuracy_score(ytest, yhat)
+    f1_micro = f1_score(ytest, yhat, average='micro')
+    f1_macro = f1_score(ytest, yhat, average='macro')
+    f1_weighted = f1_score(ytest, yhat, average='weighted')
+
+    return {'data_collection': data_collection, 'classifier': model_class.__name__, 'balanced': isBalanced, 'accuracy_score': accuracy, 'f1_score_micro': f1_micro, 'f1_score_macro': f1_macro, 'f1_score_weighted': f1_weighted}
+
+def split_X_and_y(data: pd.DataFrame):
+    X = data.drop(['datasetName', type_column], axis=1)
+    y = data[type_column]
+    return X, y
 
 for _file in files:
-    data_collection = _file.split('/')[1]
+    data_collection = _file.split('/')[2]
     print(data_collection)
 
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
 
-    dfs = [embed(orig_df, type_column, model_weights_path)]
+    embedded_df = embed(orig_df, type_column, model_weights_path)
 
     class_counts = orig_df[type_column].value_counts().values
     balanced = len(set(class_counts)) == 1
 
+    train_df, test_df = train_test_split(embedded_df, test_size=0.33)
+    xtrain, ytrain = split_X_and_y(train_df)
+    xtest, ytest = split_X_and_y(test_df)
+
+    results = results.append(fit(RandomForestClassifier, xtrain, ytrain, xtest, ytest, isBalanced=balanced), ignore_index=True)
+
     if (not balanced):
+        # re-fitting with a balanced training set
         print('rebalancing {} data collection'.format(data_collection))
-        rebal_df = rebalance.rebalance_SMOTE(orig_df, type_column, 'smote', model_weights_path)
-        dfs.append(rebal_df)
-
-    for df in dfs:
-        class_counts = df[type_column].value_counts().values
-        balanced = len(set(class_counts)) == 1
-        print(balanced)
-
-        xtrain, xtest, ytrain, ytest = None, None, None, None
-
-        if (balanced):
-            X_syn = df[df['datasetName'].eq('SYNTHETIC')].drop(['datasetName', type_column], axis=1)
-            y_syn = df[df['datasetName'].eq('SYNTHETIC')][type_column]
-
-            X_organ = df[df['datasetName'] != 'SYNTHETIC'].drop(['datasetName', type_column], axis=1)
-            y_organ = df[df['datasetName'] != 'SYNTHETIC'][type_column]
-
-            xtrain, xtest, ytrain, ytest = train_test_split(X_organ, y_organ, test_size=0.33)
-
-            xtrain = xtrain.append(X_syn)
-            ytrain = ytrain.append(y_syn)
-        else:
-            X = df.drop(['datasetName', type_column], axis=1)
-            y = df[type_column]
-            dataset_names = df['datasetName']
-            
-            xtrain, xtest, ytrain, ytest = train_test_split(X, y, test_size=0.33)
-
-        #for model_class in [SupportVectorClassifier, RandomForestClassifier]:
-        for model_class in [RandomForestClassifier]:
-            classifier = model_class.__name__
-            print('evaluating model: {}'.format(classifier))
-            model = model_class()
-            print('fitting model...')
-            model.fit(xtrain, ytrain)
-            if (balanced):
-                filename = 'RF_public_model.sav'
-                pickle.dump(model, open(filename, 'wb'))
-            yhat = model.predict(xtest)
-
-            accuracy = accuracy_score(ytest, yhat)
-            f1_micro = f1_score(ytest, yhat, average='micro')
-            f1_macro = f1_score(ytest, yhat, average='macro')
-            f1_weighted = f1_score(ytest, yhat, average='weighted')
-
-            results = results.append({'data_collection': data_collection, 'classifier': classifier, 'balanced': balanced, 'accuracy_score': accuracy, 
-                'f1_score_micro': f1_micro, 'f1_score_macro': f1_macro, 'f1_score_weighted': f1_weighted}, ignore_index=True)
+        train_rebal_df = rebalance.rebalance_SMOTE(train_df, type_column, 'smote', model_weights_path)
+        xtrain, ytrain = split_X_and_y(train_rebal_df)
+        results = results.append(fit(RandomForestClassifier, xtrain, ytrain, xtest, ytest, isBalanced=True), ignore_index=True)
 
 
 print(results)

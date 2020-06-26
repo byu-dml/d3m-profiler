@@ -21,3 +21,12 @@ Run models with `python3 evaluate_models.py [<number of cores to use>]`
 * Predictions saved to `results[_small]/predictions_<model_name>.csv`
 
 Score predictions with `python3 score_results.py results[_small]/<filename>.csv`
+
+## Creating a `conda` environment
+To create a `conda` virtual environment for running `example.py`, run the following commands:
+```
+conda create --name example cudatoolkit=9.0 tensorflow tensorflow-gpu cycler joblib kiwisolver matplotlib numpy pandas pyparsing python-dateutil pytz scikit-learn scipy six
+
+conda activate example
+pip install imbalanced-learn==0.6.2 sent2vec-prebuilt==0.0.3
+```
