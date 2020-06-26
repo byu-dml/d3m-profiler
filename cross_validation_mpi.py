@@ -32,7 +32,7 @@ def naive_gen():
     
 def rf_pca(random_state_1=15,random_state_2=20):
     #defines the Random Foest PCA model
-    model_name = 'RF_PCA_lower_border'
+    model_name = 'RF_PCA'
     pca = PCA(n_components='mle',random_state=random_state_1)
     rf = RandomForestClassifier(random_state=random_state_2)
     model = Pipeline(steps=[('pca',pca),('rf',rf)])  
@@ -71,7 +71,7 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     y_train = y.iloc[train_ind]
     #get the labels for the confusion matrix
     if (balance == True):
-        X_train, y_train = balance_data(X_train, y_train, 'SMOTE')     
+        X_train, y_train = balance_data(X_train, y_train, sampling_method='SMOTE')     
     #fit on  data
     model.fit(X_train,y_train)
     del X_train
@@ -79,6 +79,7 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     #predict on the model
     y_hat = list(model.predict(X_data[test_ind]))
     y_test = list(y.iloc[test_ind])
+    del model
     if (rank is not None):
         print("Finished Fold "+str(rank))
     return y_hat, y_test
@@ -168,6 +169,6 @@ def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, m
         results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model_name)
  
 if __name__ == "__main__":   
-    results = evaluate_model(balance=False, use_col_name_only=True, use_metadata=True, model_name = 'Naive', model = naive_gen())
+    results = evaluate_model(balance=True, use_col_name_only=True, use_metadata=True, model_name = 'RF_pca_sent_trans', model = rf_pca())
     
     
