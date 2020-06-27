@@ -1,14 +1,8 @@
-import multiprocessing as mp
-
-import numpy as np
+from multiprocessing import cpu_count
 import pandas as pd
-import sent2vec
+from imblearn.over_sampling import SMOTE, BorderlineSMOTE
 
-from imblearn.over_sampling import SMOTE, BorderlineSMOTE, SVMSMOTE
-
-from d3m_profiler.embed import embed
-
-_NUM_THREADS = (mp.cpu_count() - 1)
+_NUM_THREADS = cpu_count() - 1
 
 """
 Under samples majority class(es) to align with shape of minority class(es)
@@ -118,11 +112,7 @@ rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
 def rebalance_SMOTE(X_embedded: pd.DataFrame, y: pd.Series, method: str):
-    k_neighbors = (y.value_counts().min() - 1)
+    k_neighbors = y.value_counts().min() - 1
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
-
     sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
-    
-    X_resampled, y_resampled = sm.fit_resample(X_embedded, y)
-    
-    return X_resampled, y_resampled
+    return sm.fit_resample(X_embedded, y)
