@@ -106,26 +106,6 @@ def _configure_SMOTE(method: str, **opts):
     else:
         raise ValueError('\"{}\" is invalid argument for method parameter\n\tValid arguments: [\"smote\", \"borderline-1\", \"borderline-2\", \"svm\"]'.format(method))
 
-"""
-Constructs a balanced DataFrame with correct labeling for synthetic data
-
-Returns
--------
-rebalanced_df: pandas.DataFrame
-    The rebalanced DataFrame 
-"""
-def _construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
-    datasets = original_df['datasetName']
-    
-    rebalanced_df = pd.DataFrame(data=X_resampled)
-    rebalanced_df[type_column] = Y_resampled
-    
-    num_synthetic = len(rebalanced_df.index) - len(original_df.index)
-    datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
-    
-    rebalanced_df['datasetName'] = datasets
-    
-    return rebalanced_df
 
 """
 Rebalances a DataFrame using a SMOTE method.
@@ -137,18 +117,12 @@ Returns
 rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
-def embed_and_rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
-    embedded_df = embed(df, type_column, model_weights_path)
-
-    return rebalance_SMOTE(embedded_df, type_column, method)
-    
-
-def rebalance_SMOTE(embedded_df: pd.DataFrame, type_column: str, method: str) -> pd.DataFrame:
-    k_neighbors = (embedded_df[type_column].value_counts().min() - 1)
+def rebalance_SMOTE(X_embedded: pd.DataFrame, y: pd.Series, method: str):
+    k_neighbors = (y.value_counts().min() - 1)
     assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
 
     sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
     
-    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
+    X_resampled, y_resampled = sm.fit_resample(X_embedded, y)
     
-    return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, embedded_df)
+    return X_resampled, y_resampled

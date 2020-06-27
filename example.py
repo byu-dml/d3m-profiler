@@ -24,6 +24,7 @@ results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'ac
 #files = [closed_unbal_file, closed_bal_file, open_unbal_file, open_bal_file]
 
 type_column = 'colType'
+X_labels = ['datasetName', 'description', 'colName']
 model_weights_path = 'torontobooks_unigrams.bin'
 
 open_d3m_file = '~/data/open_d3m_unembed_data.csv'
@@ -51,11 +52,6 @@ def fit(model_class, xtrain, ytrain, xtest, ytest, isBalanced, dump=False):
 
     return {'data_collection': data_collection, 'classifier': model_class.__name__, 'balanced': isBalanced, 'accuracy_score': accuracy, 'f1_score_micro': f1_micro, 'f1_score_macro': f1_macro, 'f1_score_weighted': f1_weighted}
 
-def split_X_and_y(data: pd.DataFrame):
-    X = data.drop(['datasetName', type_column], axis=1)
-    y = data[type_column]
-    return X, y
-
 for _file in files:
     data_collection = _file.split('/')[2]
     print(data_collection)
@@ -63,24 +59,23 @@ for _file in files:
     orig_df = pd.read_csv(_file)
     orig_df = orig_df.applymap(str)
 
-    embedded_df = embed(orig_df, type_column, model_weights_path)
+    X = orig_df[X_labels]
+    y = orig_df[type_column]
+    X_embedded = embed(X, model_weights_path)
 
-    class_counts = orig_df[type_column].value_counts().values
-    balanced = len(set(class_counts)) == 1
+    balanced = len(set(y.value_counts().values)) == 1
 
-    train_df, test_df = train_test_split(embedded_df, test_size=0.33)
-    xtrain, ytrain = split_X_and_y(train_df)
-    xtest, ytest = split_X_and_y(test_df)
+    xtrain, xtest, ytrain, ytest = train_test_split(X_embedded, y, test_size=0.33, random_state=42)
 
     results = results.append(fit(RandomForestClassifier, xtrain, ytrain, xtest, ytest, isBalanced=balanced), ignore_index=True)
 
-    if (not balanced):
+    if not balanced:
         # re-fitting with a balanced training set
         print('rebalancing {} data collection'.format(data_collection))
-        train_rebal_df = rebalance.rebalance_SMOTE(train_df, type_column, 'smote')
-        xtrain, ytrain = split_X_and_y(train_rebal_df)
+        xtrain, ytrain = rebalance.rebalance_SMOTE(xtrain, ytrain, 'smote')
         results = results.append(fit(RandomForestClassifier, xtrain, ytrain, xtest, ytest, isBalanced=True), ignore_index=True)
 
 
 print(results)
-results.to_csv('data/results_2.csv', index=False)
+print(results[['data_collection', 'f1_score_macro']])
+results.to_csv('results.csv', index=False)
