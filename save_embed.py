@@ -6,9 +6,9 @@ import sent2vec
 import numpy as np
 import pandas as pd
 
-model_weights_path_st = '../../data_files/distilbert-base-nli'
+model_weights_path_st = '../data_files/distilbert-base-nli-stsb-mean-tokens'
 model_weights_path_sv = '../../data_files/torontobooks_unigrams.bin'
-closed_d3m_file = '../../data_files/data/closed_d3m_data.csv'
+closed_d3m_file = '../data_files/data/sample.csv'
 open_d3m_file = '../../data_files/data/open_d3m_data.csv'
     
 def embed(df: pd.DataFrame, model_weights_path: str, embedding_model, use_col_name_only: bool):
@@ -46,8 +46,8 @@ def embed(df: pd.DataFrame, model_weights_path: str, embedding_model, use_col_na
     return pd.concat([group_type_df, embeddings_df], axis=1)
 
 if __name__=="__main__":
-    embedding_model = 'sent2vec'
-    model_weights_path = model_weights_path_sv
+    embedding_model = 'SentenceTransformer'
+    model_weights_path = model_weights_path_st
     #load the original csv
     _NUM_THREAD = (mp.cpu_count()-1)
     print("loading...")

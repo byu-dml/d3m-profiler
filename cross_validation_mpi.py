@@ -1,5 +1,4 @@
 import numpy as np
-#import multiprocessing as mp
 import os
 import pathlib as pl
 import pandas as pd
@@ -7,9 +6,10 @@ import time
 import pickle
 import sys
 from mpi4py import MPI
+from save
 from imblearn.over_sampling import SMOTE
 from imblearn.over_sampling import BorderlineSMOTE, ADASYN
-from sklearn.model_selection import LeaveOneGroupOut
+from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.ensemble import RandomForestClassifier as RandomForestClassifier
@@ -32,7 +32,7 @@ def naive_gen():
     
 def rf_pca(random_state_1=15,random_state_2=20):
     #defines the Random Foest PCA model
-    model_name = 'RF_PCA_lower_border'
+    model_name = 'RF_PCA'
     pca = PCA(n_components='mle',random_state=random_state_1)
     rf = RandomForestClassifier(random_state=random_state_2)
     model = Pipeline(steps=[('pca',pca),('rf',rf)])  
