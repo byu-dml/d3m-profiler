@@ -95,11 +95,12 @@ def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_proc
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=LeaveOneGroupOut())
     else:
+        #47831
         if (use_metadata):
             if (use_col_name_only is True):
-                X_data = np.empty((47831, 769), dtype='d')
+                X_data = np.empty((36, 769), dtype='d')
             else:
-                X_data = np.empty((47831, 769*3), dtype='d')
+                X_data = np.empty((36, 769*3), dtype='d')
         else:
             X_data = np.empty((shape_SIMON), dtype='d')
         jobs = None
@@ -199,8 +200,10 @@ def run_models(initialized_models: list, model_names: list, balance: bool, use_c
         results = evaluate_model(balance=balance, use_col_name_only=use_col_name_only, use_metadata=use_metadata, model_name=model_names[iter_num],model=model, data_csv_path=csv_file_path)
         COMM = MPI.COMM_WORLD
         if (COMM.rank == 0):
+            print("Finished model {}".format(model_names[iter_num]))
             print(results)
             results_total = results_total.append(results)
             #now save all of the results        
             results_total.to_csv('models_final_cross_val.csv',index=False)
+        COMM.barrier()
         
