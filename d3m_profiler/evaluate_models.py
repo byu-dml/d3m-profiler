@@ -50,6 +50,7 @@ def get_from_csv(data_file: str):
     y = data['colType']
     num_rows = len(y)
     embed_size = len(X_data[0])
+    print(embed_size, num_rows)
     groups = data['datasetName']
     return X_data, y, groups, embed_size, num_rows
     
@@ -96,9 +97,9 @@ def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_proc
     else:
         if (use_metadata):
             if (use_col_name_only is True):
-                X_data = np.empty((47831, 768), dtype='d')
+                X_data = np.empty((47831, 769), dtype='d')
             else:
-                X_data = np.empty((47831, 768*3), dtype='d')
+                X_data = np.empty((47831, 769*3), dtype='d')
         else:
             X_data = np.empty((shape_SIMON), dtype='d')
         jobs = None

@@ -1,6 +1,6 @@
 import sys
 from sentence_transformers import SentenceTransformer
-import sent2vec
+#import sent2vec
 import numpy as np
 import pandas as pd
 
@@ -15,6 +15,7 @@ def embed(df: pd.DataFrame, model_weights_path: str, embedding_model: str, use_c
     if (embedding_model == 'SentenceTransformer'):
         model = SentenceTransformer(model_weights_path)
         col_name_embs = model.encode(df['colName'].str.lower().to_numpy())
+        print("finished column names!")
         all_embeddings = np.array(col_name_embs)
         if (use_col_name_only is False):
             dataset_name_embs = model.encode(df['datasetName'].str.lower().to_numpy())
