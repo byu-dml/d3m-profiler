@@ -5,7 +5,7 @@ import pandas as pd
 from d3m_profiler import rebalance
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
-from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit
+from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit, GroupKFold, ShuffleSplit
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 import pickle
@@ -22,7 +22,6 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
-    #get the labels for the confusion matrix
     if (balance == True):
         X_train, y_train = rebalance.rebalance_SMOTE(X_train, y_train, 'SMOTE')     
     #fit on  data
@@ -42,7 +41,7 @@ Gets the embedded data from csv file
 
 Returns
 ------
-None
+
 """
 def get_from_csv(data_file: str):
     data = pd.read_csv(data_file)
@@ -50,7 +49,6 @@ def get_from_csv(data_file: str):
     y = data['colType']
     num_rows = len(y)
     embed_size = len(X_data[0])
-    print(embed_size, num_rows)
     groups = data['datasetName']
     return X_data, y, groups, embed_size, num_rows
     
@@ -96,11 +94,12 @@ def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_proc
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=LeaveOneGroupOut())
     else:
         #47831
+        #36
         if (use_metadata):
             if (use_col_name_only is True):
-                X_data = np.empty((36, 769), dtype='d')
+                X_data = np.empty((47831, 769), dtype='d')
             else:
-                X_data = np.empty((36, 769*3), dtype='d')
+                X_data = np.empty((47831, 769*3), dtype='d')
         else:
             X_data = np.empty((shape_SIMON), dtype='d')
         jobs = None

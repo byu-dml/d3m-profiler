@@ -136,7 +136,7 @@ def rebalance_SMOTE(X_train, y_train, sampling_method, random_state=23):
 
     begin = time.time()
     k_neighbors = y_train.value_counts().min()-1
-    if (k_neighbors <= 1):
+    if (k_neighbors < 1):
         raise ValueError("Not enough data to rebalance. Must be more than 1.")
     if (sampling_method == 'BorderlineSMOTE'):
         smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=random_state)
