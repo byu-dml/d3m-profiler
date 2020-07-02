@@ -81,46 +81,6 @@ def rebalance(df: pd.DataFrame, type_column: str, method: str) -> pd.DataFrame:
         df = rebalance_method(df, type_column, non_critical_class, n_samples)
     return df
     
-"""
-Configures a SMOTE object based on a method.
-Valid arguments for "method" parameter are: ["smote", "borderline-1", "borderline-2", "svm"]
-
-Returns
--------
-sm: SMOTE or BorderlineSMOTE1 or BorderlineSMOTE2 or SVMSMOTE
-    The configured, specific SMOTE object
-"""
-def _configure_SMOTE(method: str, **opts):
-    k_neighbors = opts.get('k_neighbors', 5)
-    if (method == 'smote'):
-        return SMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS)
-    elif (method in ['borderline-1', 'borderline-2']):
-        return BorderlineSMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS, kind=method)
-    elif (method == 'svm'):
-        raise NotImplementedError('svmSMOTE not implemented')
-    else:
-        raise ValueError('\"{}\" is invalid argument for method parameter\n\tValid arguments: [\"smote\", \"borderline-1\", \"borderline-2\", \"svm\"]'.format(method))
-
-"""
-Constructs a balanced DataFrame with correct labeling for synthetic data
-
-Returns
--------
-rebalanced_df: pandas.DataFrame
-    The rebalanced DataFrame 
-"""
-def _construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
-    datasets = original_df['datasetName']
-    
-    rebalanced_df = pd.DataFrame(data=X_resampled)
-    rebalanced_df[type_column] = Y_resampled
-    
-    num_synthetic = len(rebalanced_df.index) - len(original_df.index)
-    datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
-    
-    rebalanced_df['datasetName'] = datasets
-    
-    return rebalanced_df
 
 """
 Rebalances a DataFrame using a SMOTE method.
