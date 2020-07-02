@@ -5,10 +5,11 @@ import pickle
 from mpi4py import MPI
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier as MLPClassifier
+from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit, GroupKFold, ShuffleSplit
 from d3m_profiler import evaluate_models
 from d3m_profiler import embed
 
-file_data = '../../data_files/data/closed_d3m_data.csv'
+file_data = '../../data_files/data/sample.csv'
 
 #start the embedding
 COMM = MPI.COMM_WORLD
@@ -20,6 +21,7 @@ else:
     file_data_embed = 'data_embed.csv'
 
 COMM.barrier()
-initialized_models = [RandomForestClassifier(random_state=15),MLPClassifier(random_state=9)]
-model_names = ['Random Forest','MLPClassifier']
-evaluate_models.run_models(initialized_models=initialized_models, model_names=model_names, balance=True, use_col_name_only=True, use_metadata=True, csv_file_path=file_data_embed)
+initialized_models = [RandomForestClassifier(random_state=15)]
+model_names = ['Random Forest']
+split_model = 'GroupShuffleSplit'
+evaluate_models.run_models(initialized_models=initialized_models, model_names=model_names, balance=True, use_col_name_only=True, use_metadata=True, csv_file_path=file_data_embed,split_model='GroupShuffleSplit')

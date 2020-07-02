@@ -84,14 +84,14 @@ Returns
 Tuple(X_data, jobs, y)
 
 """
-def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_processors: int):
+def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_processors: int, split_model: str):
     if (rank == 0):
         if (use_metadata):
             X_data, y, groups, embed_size, num_rows = get_from_csv(data_file = data_csv_path)   
         else:
             X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))     
         #format jobs list to split across processors
-        jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=LeaveOneGroupOut())
+        jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=split_model)
     else:
         #47831
         #36
@@ -116,7 +116,14 @@ Returns
 list_jobs_total (list)
 """
 def get_jobs_list(X_data, groups, size: int, cross_type):
-    splitter = cross_type
+    if (cross_type=='LeaveOneGroupOut'):
+        splitter = LeaveOneGroupOut()
+    elif(cross_type=='GroupShuffleSplit'):
+        splitter = GroupShuffleSplit(n_splits=9, train_size=0.7, random_state=12)
+    elif(cross_type=='ShuffleSplit'):
+        splitter = ShuffleSplit(n_splits=1, train_size=0.1, random_state=36)
+    else:
+        raise ValueError("Type of splitting not available")
     jobs = list(splitter.split(X_data, groups=groups))
     list_jobs_total = [list() for i in range(size)]
     for i in range(len(jobs)):
@@ -131,12 +138,12 @@ Returns
 -------
 results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
-def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model, data_csv_path):   
+def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model, data_csv_path,split_model: str):   
     #start the MPI
     COMM = MPI.COMM_WORLD
     rank = COMM.rank
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(use_col_name_only=use_col_name_only, use_metadata=use_metadata, rank=rank, data_csv_path=data_csv_path, num_processors=COMM.size)
+    X_data, jobs, y = get_variables(use_col_name_only=use_col_name_only, use_metadata=use_metadata, rank=rank, data_csv_path=data_csv_path, num_processors=COMM.size, split_model=split_model)
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
@@ -192,17 +199,17 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, model_names: list, balance: bool, use_col_name_only: bool, use_metadata: bool, csv_file_path=None):
+def run_models(initialized_models: list, model_names: list, balance: bool, use_col_name_only: bool, use_metadata: bool, csv_file_path=None, split_model='LeaveOneGroupOut'):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
         print('evaluating model: {}'.format(model_names[iter_num]))
-        results = evaluate_model(balance=balance, use_col_name_only=use_col_name_only, use_metadata=use_metadata, model_name=model_names[iter_num],model=model, data_csv_path=csv_file_path)
+        results = evaluate_model(balance=balance, use_col_name_only=use_col_name_only, use_metadata=use_metadata, model_name=model_names[iter_num],model=model, data_csv_path=csv_file_path,split_model=split_model)
         COMM = MPI.COMM_WORLD
         if (COMM.rank == 0):
             print("Finished model {}".format(model_names[iter_num]))
             print(results)
             results_total = results_total.append(results)
             #now save all of the results        
-            results_total.to_csv('models_final_cross_val.csv',index=False)
+            results_total.to_csv('models_shuffle_final_cross_val.csv',index=False)
         COMM.barrier()
         
