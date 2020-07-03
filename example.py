@@ -11,6 +11,8 @@ file_data = '../data_files/data/sample.csv'
 #this is the file that will contain or already does contain the embedded data
 file_data_embed = 'sample_embedding.csv'
 #embed the data
+
+#embedding_model can be either 'SentenceTransformer' or 'sent2vec'
 embed.embed_data(df=pd.read_csv(file_data), model_weights_path='../data_files/distilbert-base-nli', embedding_model='SentenceTransformer', use_col_name_only=True, path_embedding = file_data_embed)
 
 

@@ -18,7 +18,7 @@ Returns
 tuple(y_hat,y_test): Tuple(list(str), list(str))
     Predictions from current kfold iteration and corresponding indices
 """
-def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=None):
+def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=None, iter_num = None):
     #now fit using the indeces given by the kfold splitter
     X_train = X_data[train_ind]
     y_train = y.iloc[train_ind]
@@ -32,7 +32,7 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     y_hat = list(model.predict(X_data[test_ind]))
     y_test = list(y.iloc[test_ind])
     if (rank is not None):
-        print("Finished Fold "+str(rank))
+        print("Finished fold {} on processor {}".format(iter_num+1,rank))
     return y_hat, y_test
     
     
@@ -44,6 +44,7 @@ Returns
 
 """
 def get_from_csv(data_file: str):
+    
     data = pd.read_csv(data_file)
     X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
     y = data['colType']
@@ -60,6 +61,7 @@ Returns
 results: pd.DataFrame
 """
 def compile_results(model_name:str, results_final: list):
+    print(len(results_final))
     y_test = list()
     y_hat = list()
     #compute the results
@@ -72,9 +74,8 @@ def compile_results(model_name:str, results_final: list):
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
     conf_matrix = confusion_matrix(y_test, y_hat) 
     results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
-    #save_results_scores(results, conf_matrix, model_name = model_name)
     return results
-    
+   
 """
 Gets the variables to be used in the cross validation analysis, each of these variables
 will be able to be accessed on all of the processors
@@ -84,24 +85,19 @@ Returns
 Tuple(X_data, jobs, y)
 
 """
-def get_variables(use_col_name_only, data_csv_path, use_metadata, rank, num_processors: int, split_model: str):
-    if (rank == 0):
-        if (use_metadata):
-            X_data, y, groups, embed_size, num_rows = get_from_csv(data_file = data_csv_path)   
-        else:
-            X_data, y, groups = parse_dataset(get_datasets(DATASET_DIR))     
+def get_variables(data_csv_path, num_processors: int, split_model: str, COMM):
+    if (COMM.rank == 0):
+        X_data, y, groups, embed_size, data_count = get_from_csv(data_file = data_csv_path)       
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=split_model)
     else:
-        #47831
-        #36
-        if (use_metadata):
-            if (use_col_name_only is True):
-                X_data = np.empty((47831, 769), dtype='d')
-            else:
-                X_data = np.empty((47831, 769*3), dtype='d')
-        else:
-            X_data = np.empty((shape_SIMON), dtype='d')
+        embed_size = None
+        data_count = None
+    embed_size = COMM.bcast(embed_size)
+    data_count = COMM.bcast(data_count)    
+    COMM.barrier()        
+    if (COMM.rank != 0):
+        X_data = np.empty((data_count, embed_size), dtype='d')
         jobs = None
         y = None
     
@@ -121,7 +117,7 @@ def get_jobs_list(X_data, groups, size: int, cross_type):
     elif(cross_type=='GroupShuffleSplit'):
         splitter = GroupShuffleSplit(n_splits=9, train_size=0.7, random_state=12)
     elif(cross_type=='ShuffleSplit'):
-        splitter = ShuffleSplit(n_splits=1, train_size=0.1, random_state=36)
+        splitter = ShuffleSplit(n_splits=1, train_size=0.7, random_state=36)
     else:
         raise ValueError("Type of splitting not available")
     jobs = list(splitter.split(X_data, groups=groups))
@@ -129,6 +125,7 @@ def get_jobs_list(X_data, groups, size: int, cross_type):
     for i in range(len(jobs)):
         j = i % size
         list_jobs_total[j].append(jobs[i])
+    print("Each processor has at most {} jobs".format(len(list_jobs_total[0])))
     return list_jobs_total
     
 """
@@ -138,28 +135,26 @@ Returns
 -------
 results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
-def evaluate_model(balance: bool, use_col_name_only: bool, use_metadata: bool, model_name: str, model, data_csv_path,split_model: str):   
+def evaluate_model(balance: bool, model_name: str, model, data_csv_path, split_model: str):   
     #start the MPI
     COMM = MPI.COMM_WORLD
-    rank = COMM.rank
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(use_col_name_only=use_col_name_only, use_metadata=use_metadata, rank=rank, data_csv_path=data_csv_path, num_processors=COMM.size, split_model=split_model)
+    X_data, jobs, y = get_variables(data_csv_path=data_csv_path, num_processors=COMM.size, split_model=split_model,COMM=COMM)
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     COMM.Bcast([X_data, MPI.FLOAT], root=0)
     #run cross-validation on all the different processors
-    print("Starting cross validation...")
     results_init = []
-    for job in jobs:
+    for it,job in enumerate(jobs):
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, model, balance=balance,rank=rank))
+        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, model, balance=balance, rank=COMM.rank, iter_num = it))
     #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
 
     #compile and save the results
-    if (rank == 0):
+    if (COMM.rank == 0):
         del X_data
         del y
         print("Finished cross validation!")
@@ -199,17 +194,16 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, model_names: list, balance: bool, use_col_name_only: bool, use_metadata: bool, csv_file_path=None, split_model='LeaveOneGroupOut'):
+def run_models(initialized_models: list, model_names: list, balance: bool, csv_file_path=None, split_model='LeaveOneGroupOut'):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
-        print('evaluating model: {}'.format(model_names[iter_num]))
-        results = evaluate_model(balance=balance, use_col_name_only=use_col_name_only, use_metadata=use_metadata, model_name=model_names[iter_num],model=model, data_csv_path=csv_file_path,split_model=split_model)
+        results = evaluate_model(balance=balance, model_name=model_names[iter_num], model=model, data_csv_path=csv_file_path,split_model=split_model)
         COMM = MPI.COMM_WORLD
         if (COMM.rank == 0):
             print("Finished model {}".format(model_names[iter_num]))
             print(results)
             results_total = results_total.append(results)
             #now save all of the results        
-            results_total.to_csv('models_shuffle_final_cross_val.csv',index=False)
+            results_total.to_csv('models_final_cross_val.csv',index=False)
         COMM.barrier()
         

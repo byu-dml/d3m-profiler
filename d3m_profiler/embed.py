@@ -1,6 +1,6 @@
 import sys
 from sentence_transformers import SentenceTransformer
-#import sent2vec
+import sent2vec
 import numpy as np
 import pandas as pd
 from mpi4py import MPI
