@@ -7,7 +7,7 @@ To install:
 
 Install requirements.txt
 
-Download desired sent2vec weights [here](https://github.com/epfml/sent2vec#downloading-sent2vec-pre-trained-models)
+Download desired sent2vec weights [here](https://github.com/epfml/sent2vec#downloading-sent2vec-pre-trained-models). `example.py` uses the model called "sent2vec_wiki_unigrams".
 
 Collect raw data with `python build_table.py </path/to/datasets/dir>`
 
@@ -25,8 +25,7 @@ Score predictions with `python3 score_results.py results[_small]/<filename>.csv`
 ## Creating a `conda` environment
 To create a `conda` virtual environment for running `example.py`, run the following commands:
 ```
-conda create --name example cudatoolkit=9.0 tensorflow tensorflow-gpu cycler joblib kiwisolver matplotlib numpy pandas pyparsing python-dateutil pytz scikit-learn scipy six
-
+conda create --name example python=3.6
 conda activate example
-pip install imbalanced-learn==0.6.2 sent2vec-prebuilt==0.0.3
+pip install -r requirements.txt
 ```
