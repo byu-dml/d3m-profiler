@@ -4,17 +4,15 @@ import logging
 import os
 import sys
 import typing
+from pathlib import Path
 
 
-DATA_PATH = './data.csv'
-LOG_FILENAME = '/dev/null'
-logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 def get_datasets(datasets_dir: str) -> typing.Dict[str, str]:
     if datasets_dir is None:
-        raise exceptions.InvalidArgumentValueError("Datasets directory has to be provided.")
+        raise ValueError("Datasets directory has to be provided.")
 
     datasets: typing.Dict[str, str] = {}
 
@@ -60,27 +58,10 @@ def get_datasets(datasets_dir: str) -> typing.Dict[str, str]:
 
     return datasets
 
-def human_readable_ify(in_str: str) -> str:
-    out_str = in_str[0]
-    for i in range(1, len(in_str)):
-        if in_str[i] in ['_', '-']:
-            out_str += ' '
-        elif in_str[i].isupper() and in_str[i-1] not in [' ', '_', '-'] and in_str[i-1].islower():
-            out_str += ' '+in_str[i]
-        elif in_str[i].isdigit() and in_str[i-1] not in [' ', '_', '-']:
-            out_str += ' '+in_str[i]
-        else:
-            out_str += in_str[i]
-    return out_str
 
-
-def build_table(dataset_path):
-
-    datasets = get_datasets(dataset_path)
-
-    output_headers = ['datasetName', 'description', 'colName', 'colType']
+def extract_columns(dataset_items):
     output = []
-    for dataset_id, path in datasets.items():
+    for dataset_id, path in dataset_items:
         with open(path, 'r') as dataset_doc:
             dataset = json.load(dataset_doc)
             d_name = human_readable_ify(dataset['about']['datasetName'])
@@ -106,13 +87,36 @@ def build_table(dataset_path):
                         'colName': c_name,
                         'colType': c_type
                     })
+    return output
 
-    with open(DATA_PATH, 'w', newline='') as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=output_headers)
 
+def human_readable_ify(in_str: str) -> str:
+    out_str = in_str[0]
+    for i in range(1, len(in_str)):
+        if in_str[i] in ['_', '-']:
+            out_str += ' '
+        elif in_str[i].isupper() and in_str[i-1] not in [' ', '_', '-'] and in_str[i-1].islower():
+            out_str += ' '+in_str[i]
+        elif in_str[i].isdigit() and in_str[i-1] not in [' ', '_', '-']:
+            out_str += ' '+in_str[i]
+        else:
+            out_str += in_str[i]
+    return out_str
+
+
+def write_output(output_filename, data):
+    with open(f'./{Path(output_filename).stem}.csv', 'w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=['datasetName', 'description', 'colName', 'colType'])
         writer.writeheader()
-        for row in output:
+        for row in data:
             writer.writerow(row)
+
+
+def build_table(dataset_path, output_filename='data', logfile_path='/dev/null'):
+    logging.basicConfig(filename=logfile_path, level=logging.DEBUG)
+    datasets = get_datasets(dataset_path)
+    output = extract_columns(datasets.items())
+    write_output(output_filename, output)
 
 
 if __name__ == '__main__':

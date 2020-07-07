@@ -1,6 +1,7 @@
 from multiprocessing import cpu_count
 import pandas as pd
 import pickle
+import os
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
@@ -8,6 +9,7 @@ from sklearn.model_selection import train_test_split
 
 from d3m_profiler.rebalance import rebalance_SMOTE as rebalance
 from d3m_profiler.embed import embed
+from create_data_files import create_metadata_file
 
 NUM_THREADS = cpu_count()
 TYPE_COLUMN = 'colType'
@@ -15,6 +17,7 @@ X_LABELS = ['datasetName', 'description', 'colName']
 MODEL_WEIGHTS_PATH = 'torontobooks_unigrams.bin'
 PUBLIC_METADATA = 'public_d3m_unembed_data.csv.gz'
 PRIVATE_METADATA = 'private_d3m_unembed_data.csv.gz'
+PRIVATE_DATA_DIR = '/users/data/d3m/datasets/training_datasets/'
 
 
 def experiment(dataset_name, X_train, y_train, X_test, y_test):
@@ -45,6 +48,9 @@ def score(model, X_test, y_test):
 
 
 if __name__ == '__main__':
+    if not os.path.isfile(PRIVATE_METADATA):
+        create_metadata_file(dataset_dir=PRIVATE_DATA_DIR, filename=PRIVATE_METADATA)
+
     results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'accuracy_score',
                                     'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
 
