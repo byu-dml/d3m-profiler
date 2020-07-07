@@ -13,3 +13,4 @@ scipy==1.4.1
 sent2vec-prebuilt==0.0.3
 six==1.14.0
 sentence-transformers<=1.2.3
+git+https://github.com/NewKnowledge/simon

@@ -8,3 +8,7 @@ results*/*
 *.egg-info
 
 private_d3m_unembed_data.csv.gz
+
+simon/
+logs/
+unencoded_chars.json
