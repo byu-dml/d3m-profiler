@@ -69,4 +69,4 @@ if __name__ == '__main__':
             results = results.append(experiment(dataset, X_train, y_train, X_test, y_test), ignore_index=True)
 
     print(results)
-    results.to_csv('results.csv', index=False)
+    results.to_csv('example_results.csv', index=False)
