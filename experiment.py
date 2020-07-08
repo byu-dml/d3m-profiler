@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import os.path
-from sklearn.metrics import f1_score, multilabel_confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score, multilabel_confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
 import json
 import time
@@ -11,34 +11,43 @@ import ModelBase
 
 MAX_LEN = 20
 MAX_CELLS = 100
-PUBLIC_DATA_DIR = '/users/data/d3m/datasets/training_datasets'
+PRIVATE_DATA_DIR = '/users/data/d3m/datasets/training_datasets/'
 PRIVATE_METADATA = 'private_d3m_unembed_data.csv.gz'
 
 
-def evaluate_model(model: ModelBase, use_metadata: bool, n_splits: int, train_size: float=0.66, split_seed=None, return_times: bool=False):
+def evaluate_model(model: ModelBase, use_metadata: bool, n_splits: int, train_size: float=0.66, split_seed=None):
     if use_metadata:
         X, y, groups = parse_metadata()
     else:
-        X, y, groups = parse_datasets(get_datasets(PUBLIC_DATA_DIR))
+        X, y, groups = parse_datasets(get_datasets(PRIVATE_DATA_DIR))
     X, y = model.encode_data(X, y)
-    scores, times = [], []
+    scores = []
     splitter = GroupShuffleSplit(n_splits=n_splits, train_size=train_size, random_state=split_seed)
     for train_indices, test_indices in splitter.split(X, y, groups):
         start = time.time()
         model.fit(X[train_indices], y[train_indices])
-        y_pred = model.predict(X[test_indices])
-        scores.append(score(y[test_indices], y_pred))
-        times.append(time.time() - start)
-    if return_times:
-        return np.array(scores), np.array(times)
-    return np.array(scores)
+        fold_scores = score(model, X[test_indices], y[test_indices])
+        unique, counts = np.unique(y[train_indices], return_counts=True)
+        fold_scores['balanced'] = len(np.unique(counts)) == 1
+        fold_scores['data_collection'] = model.__class__.__name__
+        fold_scores['use_metadata'] = use_metadata
+        fold_scores['time_elapsed'] = time.time() - start
+        fold_scores['fold_index'] = len(scores)
+        scores.append(fold_scores)
+        print(scores)
+    return scores
 
 
-def score(y_true, y_pred):
-    return [f1_score(y_true, y_pred, average='micro'),
-            f1_score(y_true, y_pred, average='macro'),
-            f1_score(y_true, y_pred, average='weighted'),
-            multilabel_confusion_matrix(y_true, y_pred, labels=np.unique(y_true))]
+def score(model: ModelBase, X_test, y_test):
+    predictions = model.predict(X_test)
+    return {
+        'classifier': model.__class__.__name__,
+        'accuracy_score': accuracy_score(y_test, predictions),
+        'f1_score_micro': f1_score(y_test, predictions, average='micro'),
+        'f1_score_macro': f1_score(y_test, predictions, average='macro'),
+        'f1_score_weighted': f1_score(y_test, predictions, average='weighted'),
+        'confusion_matrix': multilabel_confusion_matrix(y_test, predictions, labels=np.unique(y_test))
+    }
 
 
 def parse_datasets(datasets):
@@ -89,24 +98,12 @@ def parse_metadata(X_labels=None):
     return X, data['colType'], data['datasetName']
 
 
-def print_scores(scores, times=None):
-    np.set_printoptions(precision=5, suppress=True)
-    if times is not None:
-        print(f'Average time to complete fold: {np.mean(times)} seconds')
-        print(f'Total model evaluation time: {np.sum(times)} seconds')
-    print(f'Average F1 Micro: {np.mean(scores[:, 0])}')
-    print(f'Average F1 Macro: {np.mean(scores[:, 1])}')
-    print(f'Average F1 Weighted: {np.mean(scores[:, 2])}')
-    print(f'Average Confusion Matrix: \n{np.mean(scores[:, 3], axis=0)}')
-
-
 def main():
-    results = pd.DataFrame(columns=['data_collection', 'classifier', 'balanced', 'accuracy_score',
-                                    'f1_score_micro', 'f1_score_macro', 'f1_score_weighted'])
-
+    results = pd.DataFrame()
     simon = BaselineSimon(max_cells=MAX_CELLS, max_len=MAX_LEN)
-    scores, times = evaluate_model(model=simon, use_metadata=False, split_seed=42, n_splits=9, train_size=0.66, return_times=True)
-    print_scores(scores, times)
+    results.append(evaluate_model(model=simon, use_metadata=False, split_seed=42, n_splits=9, train_size=0.66), ignore_index=True)
+    print(results)
+    results.to_csv('experiment_results.csv', index=False)
 
 
 if __name__ == '__main__':
