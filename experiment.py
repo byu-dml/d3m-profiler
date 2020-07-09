@@ -91,17 +91,15 @@ def parse_datasets(datasets):
 def parse_metadata(X_labels=None):
     if X_labels is None:
         X_labels = ['colName']
-    data = pd.read_csv(PRIVATE_METADATA)
+    data = pd.read_csv(PRIVATE_METADATA).applymap(str)
     X = data[X_labels]
-    for col in X.columns:
-        X[col] = X[col].str.lower()
     return X, data['colType'], data['datasetName']
 
 
 def main():
     results = pd.DataFrame()
     simon = BaselineSimon(max_cells=MAX_CELLS, max_len=MAX_LEN)
-    results.append(evaluate_model(model=simon, use_metadata=False, split_seed=42, n_splits=9, train_size=0.66), ignore_index=True)
+    results = results.append(evaluate_model(model=simon, use_metadata=False, split_seed=42, n_splits=9, train_size=0.66), ignore_index=True)
     print(results)
     results.to_csv('experiment_results.csv', index=False)
 
