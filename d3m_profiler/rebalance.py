@@ -1,14 +1,9 @@
-import multiprocessing as mp
-
+import time
 import numpy as np
 import pandas as pd
-import sent2vec
-
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE, SVMSMOTE
-
 from d3m_profiler.embed import embed
 
-_NUM_THREADS = (mp.cpu_count() - 1)
 
 """
 Under samples majority class(es) to align with shape of minority class(es)
@@ -86,46 +81,6 @@ def rebalance(df: pd.DataFrame, type_column: str, method: str) -> pd.DataFrame:
         df = rebalance_method(df, type_column, non_critical_class, n_samples)
     return df
     
-"""
-Configures a SMOTE object based on a method.
-Valid arguments for "method" parameter are: ["smote", "borderline-1", "borderline-2", "svm"]
-
-Returns
--------
-sm: SMOTE or BorderlineSMOTE1 or BorderlineSMOTE2 or SVMSMOTE
-    The configured, specific SMOTE object
-"""
-def _configure_SMOTE(method: str, **opts):
-    k_neighbors = opts.get('k_neighbors', 5)
-    if (method == 'smote'):
-        return SMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS)
-    elif (method in ['borderline-1', 'borderline-2']):
-        return BorderlineSMOTE(sampling_strategy='not majority', random_state=42, k_neighbors=k_neighbors, n_jobs=_NUM_THREADS, kind=method)
-    elif (method == 'svm'):
-        raise NotImplementedError('svmSMOTE not implemented')
-    else:
-        raise ValueError('\"{}\" is invalid argument for method parameter\n\tValid arguments: [\"smote\", \"borderline-1\", \"borderline-2\", \"svm\"]'.format(method))
-
-"""
-Constructs a balanced DataFrame with correct labeling for synthetic data
-
-Returns
--------
-rebalanced_df: pandas.DataFrame
-    The rebalanced DataFrame 
-"""
-def _construct_rebalanced_df(X_resampled: pd.DataFrame, Y_resampled: pd.DataFrame, type_column: str, original_df: pd.DataFrame) -> pd.DataFrame:
-    datasets = original_df['datasetName']
-    
-    rebalanced_df = pd.DataFrame(data=X_resampled)
-    rebalanced_df[type_column] = Y_resampled
-    
-    num_synthetic = len(rebalanced_df.index) - len(original_df.index)
-    datasets = datasets.append(pd.Series(['SYNTHETIC'] * num_synthetic), ignore_index=True)
-    
-    rebalanced_df['datasetName'] = datasets
-    
-    return rebalanced_df
 
 """
 Rebalances a DataFrame using a SMOTE method.
@@ -137,15 +92,23 @@ Returns
 rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
-def rebalance_SMOTE(df: pd.DataFrame, type_column: str, method: str, model_weights_path: str) -> pd.DataFrame:
-    embedded_df = embed(df, type_column, model_weights_path)
+def rebalance_SMOTE(X_train, y_train, sampling_method, random_state=23):
 
-    k_neighbors = (embedded_df[type_column].value_counts().min() - 1)
-    assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
-
-    sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
-    
-    X_resampled, Y_resampled = sm.fit_resample(embedded_df.drop(['datasetName',type_column], axis=1), embedded_df[type_column])
-    
-    return _construct_rebalanced_df(X_resampled, Y_resampled, type_column, df)
+    begin = time.time()
+    k_neighbors = y_train.value_counts().min()-1
+    if (k_neighbors < 1):
+        raise ValueError("Not enough data to rebalance. Must be more than 1.")
+    if (sampling_method == 'BorderlineSMOTE'):
+        smote = BorderlineSMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=random_state)
+    elif (sampling_method == 'ADASYN'):
+        smote = ADASYN(sampling_strategy='not majority',n_neighbors=k_neighbors,random_state=random_state)
+    elif (sampling_method == 'SMOTE'):
+        smote = SMOTE(sampling_strategy='not majority',k_neighbors=k_neighbors,random_state=random_state)
+    else:
+        raise ValueError("Sampling method not available")
+    #rebalance the data
+    X_train, y_train = smote.fit_resample(X_train, y_train)
+    end = time.time()
+    print("Time to rebalance: "+str(np.round(end-begin,3)))
+    return X_train, y_train
     
