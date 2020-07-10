@@ -18,10 +18,8 @@ Returns
 tuple(y_hat,y_test): Tuple(list(str), list(str))
     Predictions from current kfold iteration and corresponding indices
 """
-def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=None, iter_num = None):
+def fit_predict_model(X_train, y_train, X_test, y_test, model, balance=True, rank=None, iter_num = None):
     #now fit using the indeces given by the kfold splitter
-    X_train = X_data[train_ind]
-    y_train = y.iloc[train_ind]
     if (balance == True):
         X_train, y_train = rebalance.rebalance_SMOTE(X_train, y_train, 'SMOTE')     
     #fit on  data
@@ -29,8 +27,8 @@ def fit_predict_model(X_data, y, train_ind, test_ind, model, balance=True, rank=
     del X_train
     del y_train
     #predict on the model
-    y_hat = list(model.predict(X_data[test_ind]))
-    y_test = list(y.iloc[test_ind])
+    y_hat = list(model.predict(X_test))
+    y_test = list(y_test)
     if (rank is not None):
         print("Finished fold {} on processor {}".format(iter_num+1,rank))
     return y_hat, y_test
@@ -61,7 +59,6 @@ Returns
 results: pd.DataFrame
 """
 def compile_results(model_name:str, results_final: list):
-    print(len(results_final))
     y_test = list()
     y_hat = list()
     #compute the results
@@ -148,11 +145,10 @@ def evaluate_model(balance: bool, model_name: str, model, data_csv_path, split_m
     results_init = []
     for it,job in enumerate(jobs):
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data,y,train_ind, test_ind, model, balance=balance, rank=COMM.rank, iter_num = it))
+        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, balance=balance, rank=COMM.rank, iter_num = it))
     #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
-
     #compile and save the results
     if (COMM.rank == 0):
         del X_data
