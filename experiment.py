@@ -3,39 +3,26 @@ import numpy as np
 import os.path
 from sklearn.metrics import accuracy_score, f1_score, multilabel_confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
-import json
 import time
-from d3m_profiler.build_table import get_datasets
+from d3m_profiler.build_table import get_datasets, extract_data_values, extract_columns
 from BaselineSimon import BaselineSimon
+from MetadataProfiler import MetadataProfiler
 import ModelBase
 
 MAX_LEN = 20
 MAX_CELLS = 100
 PRIVATE_DATA_DIR = '/users/data/d3m/datasets/training_datasets/'
-PRIVATE_METADATA = 'private_d3m_unembed_data.csv.gz'
+PRIVATE_METADATA_FILE = 'private_d3m_unembed_metadata.csv.gz'
+PRIVATE_BASELINE_DATA_FILE = 'private_d3m_unembed_baseline_data.pkl.gz'
+METADATA_X_LABELS = ['colName']
 
 
-def evaluate_model(model: ModelBase, use_metadata: bool, n_splits: int, train_size: float=0.66, split_seed=None):
-    if use_metadata:
-        X, y, groups = parse_metadata()
-    else:
-        X, y, groups = parse_datasets(get_datasets(PRIVATE_DATA_DIR))
-    X, y = model.encode_data(X, y)
-    scores = []
-    splitter = GroupShuffleSplit(n_splits=n_splits, train_size=train_size, random_state=split_seed)
-    for train_indices, test_indices in splitter.split(X, y, groups):
-        start = time.time()
-        model.fit(X[train_indices], y[train_indices])
-        fold_scores = score(model, X[test_indices], y[test_indices])
-        unique, counts = np.unique(y[train_indices], return_counts=True)
-        fold_scores['balanced'] = len(np.unique(counts)) == 1
-        fold_scores['data_collection'] = model.__class__.__name__
-        fold_scores['use_metadata'] = use_metadata
-        fold_scores['time_elapsed'] = time.time() - start
-        fold_scores['fold_index'] = len(scores)
-        scores.append(fold_scores)
-        print(scores)
-    return scores
+def run_fold(model: ModelBase, X_train, y_train, X_test, y_test):
+    start = time.time()
+    model.fit(X_train, y_train)
+    fold_scores = score(model, X_test, y_test)
+    fold_scores['time_elapsed'] = time.time() - start
+    return fold_scores
 
 
 def score(model: ModelBase, X_test, y_test):
@@ -50,56 +37,51 @@ def score(model: ModelBase, X_test, y_test):
     }
 
 
-def parse_datasets(datasets):
-    raw_data, header, groups = [], [], []
-    for dataset_id, dataset_doc_path in datasets.items():
-        # open the dataset doc to get the column headers
-        with open(dataset_doc_path, 'r') as dataset_doc:
-            meta_dataset = json.load(dataset_doc)
-            for resource in meta_dataset['dataResources']:
-                if 'columns' not in resource:
-                    continue
-                # then open the actual dataset table to get column values
-                if resource['resPath'][-4:] == '.csv':
-                    try:
-                        dataset = pd.read_csv(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath']))
-                    except:
-                        continue
-                else:
-                    values = 0
-                    tables = []
-                    for entry in os.scandir(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath'])):
-                        tables.append(pd.read_csv(entry.path))
-                        values += len(tables[-1])
-                        if values >= MAX_CELLS:
-                            break
-                    dataset = pd.concat(tables, ignore_index=True)
+def parse_all_data(force_rebuild=False):
+    if force_rebuild or not os.path.isfile(PRIVATE_BASELINE_DATA_FILE):
+        data = extract_data_values(get_datasets(PRIVATE_DATA_DIR), max_cells=MAX_CELLS, max_len=MAX_LEN)
+        data.to_pickle(PRIVATE_BASELINE_DATA_FILE)
+    else:
+        data = pd.read_pickle(PRIVATE_BASELINE_DATA_FILE)
 
-                for column in resource['columns']:
-                    values = list(dataset[column['colName']].values)
-                    if len(values) > MAX_CELLS:
-                        values = [str(v)[:MAX_LEN] for v in values[:MAX_CELLS]]
-                    else:
-                        values = [str(v)[:MAX_LEN] for v in values] + ['' for i in range(MAX_CELLS - len(values))]
-
-                    raw_data.append(values)
-                    header.append((column['colType'],))
-                    groups.append(meta_dataset['about']['datasetName'])
-    return np.asarray(raw_data), np.asarray(header), np.asarray(groups)
+    return data['values'], data['colType'], data['datasetName']
 
 
-def parse_metadata(X_labels=None):
-    if X_labels is None:
-        X_labels = ['colName']
-    data = pd.read_csv(PRIVATE_METADATA).applymap(str)
-    X = data[X_labels]
-    return X, data['colType'], data['datasetName']
+def parse_metadata(force_rebuild=False):
+    if force_rebuild or not os.path.isfile(PRIVATE_METADATA_FILE):
+        data = extract_columns(get_datasets(PRIVATE_DATA_DIR))
+        data.to_csv(PRIVATE_METADATA_FILE, index=False)
+    else:
+        data = pd.read_csv(PRIVATE_METADATA_FILE).applymap(str)
+    return data[METADATA_X_LABELS], data['colType'], data['datasetName']
+
+
+def index_generator(data_shape, groups):
+    splitter = GroupShuffleSplit(n_splits=5, train_size=0.67, random_state=42)
+    for i, (train_indices, test_indices) in enumerate(splitter.split(X=np.zeros(data_shape), groups=groups)):
+        yield i, train_indices, test_indices
 
 
 def main():
-    results = pd.DataFrame()
+    X_metadata, y_metadata, groups_metadata = parse_metadata()
+    metadata_profiler = MetadataProfiler(X_labels=METADATA_X_LABELS)
+    X_metadata, y_metadata = metadata_profiler.encode_data(X_metadata, y_metadata)
+
+    X_data, y_data, groups_data = parse_all_data()
     simon = BaselineSimon(max_cells=MAX_CELLS, max_len=MAX_LEN)
-    results = results.append(evaluate_model(model=simon, use_metadata=False, split_seed=42, n_splits=9, train_size=0.66), ignore_index=True)
+    X_data, y_data = simon.encode_data(np.asarray(list(X_data)), list(y_data))
+
+    results = pd.DataFrame()
+    for fold_index, train_indices, test_indices in index_generator(X_metadata.shape, groups_metadata):
+        fold_scores_simon = run_fold(simon, X_data[train_indices], y_data[train_indices],
+                                     X_data[test_indices], y_data[test_indices])
+        fold_scores_simon['fold_index'] = fold_index
+
+        fold_scores_profiler = run_fold(metadata_profiler, X_metadata.iloc[train_indices], y_metadata.iloc[train_indices],
+                                        X_metadata.iloc[test_indices], y_metadata.iloc[test_indices])
+        fold_scores_profiler['fold_index'] = fold_index
+
+        results = results.append([fold_scores_simon, fold_scores_profiler], ignore_index=True)
     print(results)
     results.to_csv('experiment_results.csv', index=False)
 
