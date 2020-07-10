@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import typing
+import re
 import pandas as pd
 from pandas.errors import ParserError, EmptyDataError
 
@@ -146,18 +147,16 @@ def get_data_from_resource(resource, dataset_doc_path, dataset_name, max_cells=1
     return extracted_data
 
 
-def human_readable_ify(in_str: str) -> str:
-    out_str = in_str[0]
-    for i in range(1, len(in_str)):
-        if in_str[i] in ['_', '-']:
-            out_str += ' '
-        elif in_str[i].isupper() and in_str[i-1] not in [' ', '_', '-'] and in_str[i-1].islower():
-            out_str += ' '+in_str[i]
-        elif in_str[i].isdigit() and in_str[i-1] not in [' ', '_', '-']:
-            out_str += ' '+in_str[i]
-        else:
-            out_str += in_str[i]
-    return out_str
+def human_readable_ify(text: str) -> str:
+    # replace '_' with a space
+    text = re.sub('_', ' ', text)
+
+    # insert a space before a number if the text ends in a number
+    # does NOT insert another space if there is already whitespace before the number (or another number)
+    # eg: LL0 Test Data0   --> LL0 Test Data 0
+    #     LL0 Test Data 23 --> LL0 Test Data 23  [ no change ]
+    text = re.sub('((?<![\s\d])\d+$)', ' \\1', text)
+    return text
 
 
 def build_table(dataset_path, output_filename='data', logfile_path='/dev/null'):
