@@ -44,7 +44,7 @@ def parse_all_data(force_rebuild=False):
     else:
         data = pd.read_pickle(PRIVATE_BASELINE_DATA_FILE)
 
-    return data['values'], data['colType'], data['datasetName']
+    return np.asarray(list(data['values'])), data[['colType']].to_numpy(), data[['datasetName']].to_numpy()
 
 
 def parse_metadata(force_rebuild=False):
@@ -56,8 +56,7 @@ def parse_metadata(force_rebuild=False):
     return data[METADATA_X_LABELS], data['colType'], data['datasetName']
 
 
-def index_generator(data_shape, groups):
-    splitter = GroupShuffleSplit(n_splits=5, train_size=0.67, random_state=42)
+def index_generator(data_shape, groups, splitter):
     for i, (train_indices, test_indices) in enumerate(splitter.split(X=np.zeros(data_shape), groups=groups)):
         yield i, train_indices, test_indices
 
@@ -69,10 +68,11 @@ def main():
 
     X_data, y_data, groups_data = parse_all_data()
     simon = BaselineSimon(max_cells=MAX_CELLS, max_len=MAX_LEN)
-    X_data, y_data = simon.encode_data(np.asarray(list(X_data)), list(y_data))
+    X_data, y_data = simon.encode_data(X_data, y_data)
 
     results = pd.DataFrame()
-    for fold_index, train_indices, test_indices in index_generator(X_metadata.shape, groups_metadata):
+    splitter = GroupShuffleSplit(n_splits=1, train_size=0.67, random_state=42)
+    for fold_index, train_indices, test_indices in index_generator(X_metadata.shape, groups_metadata, splitter):
         fold_scores_simon = run_fold(simon, X_data[train_indices], y_data[train_indices],
                                      X_data[test_indices], y_data[test_indices])
         fold_scores_simon['fold_index'] = fold_index
