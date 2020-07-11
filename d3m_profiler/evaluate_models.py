@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 from d3m_profiler import rebalance
+from d3m_profiler import embed
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
 from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit, GroupKFold, ShuffleSplit
@@ -18,11 +19,7 @@ Returns
 tuple(y_hat,y_test): Tuple(list(str), list(str))
     Predictions from current kfold iteration and corresponding indices
 """
-def fit_predict_model(X_train, y_train, X_test, y_test, model, balance=True, rank=None, iter_num = None):
-    #now fit using the indeces given by the kfold splitter
-    if (balance == True):
-        X_train, y_train = rebalance.rebalance_SMOTE(X_train, y_train, 'SMOTE')     
-    #fit on  data
+def fit_predict_model(X_train, y_train, X_test, y_test, model, rank=None, iter_num = None):
     model.fit(X_train,y_train)
     del X_train
     del y_train
@@ -41,13 +38,13 @@ Returns
 ------
 
 """
-def get_from_csv(data_file: str):
+def get_from_csv(data_file: str, to_drop: list):
     
     data = pd.read_csv(data_file)
-    X_data = data.drop(['colType','datasetName'],axis=1).to_numpy()
+    X_data = data.drop(to_drop,axis=1)
     y = data['colType']
     num_rows = len(y)
-    embed_size = len(X_data[0])
+    embed_size = len(X_data.iloc[0])
     groups = data['datasetName']
     return X_data, y, groups, embed_size, num_rows
     
@@ -82,9 +79,14 @@ Returns
 Tuple(X_data, jobs, y)
 
 """
-def get_variables(data_csv_path, num_processors: int, split_model: str, COMM):
+def get_variables(model, num_processors: int, split_model: str, data_path: str, COMM):
     if (COMM.rank == 0):
-        X_data, y, groups, embed_size, data_count = get_from_csv(data_file = data_csv_path)       
+        #first embed the data
+        X_data, y, groups, _, _ = get_from_csv(data_file = data_path, to_drop=['colType'])
+        embed.create_save_embeddings(model, X_data, y, groups)
+        #now get the variables from the csv
+        X_data, y, groups, embed_size, data_count = get_from_csv(data_file = model.embed_data_file, to_drop=['colType','datasetName']) 
+        X_data = X_data.to_numpy()      
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=split_model)
     else:
@@ -132,11 +134,11 @@ Returns
 -------
 results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
-def evaluate_model(balance: bool, model_name: str, model, data_csv_path, split_model: str):   
+def evaluate_model(model, data_path: str, split_model: str):   
     #start the MPI
     COMM = MPI.COMM_WORLD
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(data_csv_path=data_csv_path, num_processors=COMM.size, split_model=split_model,COMM=COMM)
+    X_data, jobs, y = get_variables(model=model, num_processors=COMM.size, split_model=split_model, data_path=data_path, COMM=COMM)
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
@@ -145,7 +147,7 @@ def evaluate_model(balance: bool, model_name: str, model, data_csv_path, split_m
     results_init = []
     for it,job in enumerate(jobs):
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, balance=balance, rank=COMM.rank, iter_num = it))
+        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, rank=COMM.rank, iter_num = it))
     #gather results from processors
     results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
     del jobs
@@ -154,7 +156,7 @@ def evaluate_model(balance: bool, model_name: str, model, data_csv_path, split_m
         del X_data
         del y
         print("Finished cross validation!")
-        results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model_name)
+        results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model.model_name)
     else:
         results = None
     results = COMM.bcast(results,root=0)
@@ -190,13 +192,13 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, model_names: list, balance: bool, csv_file_path=None, split_model='LeaveOneGroupOut'):
+def run_models(initialized_models: list, data_path=None, split_model='LeaveOneGroupOut'):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
-        results = evaluate_model(balance=balance, model_name=model_names[iter_num], model=model, data_csv_path=csv_file_path,split_model=split_model)
+        results = evaluate_model(model=model, data_path=data_path, split_model=split_model)
         COMM = MPI.COMM_WORLD
         if (COMM.rank == 0):
-            print("Finished model {}".format(model_names[iter_num]))
+            print("Finished model {}".format(model.model_name))
             print(results)
             results_total = results_total.append(results)
             #now save all of the results        
