@@ -79,7 +79,8 @@ Returns
 Tuple(X_data, jobs, y)
 
 """
-def get_variables(model, num_processors: int, split_model: str, data_path: str, COMM):
+def get_variables(model, data_path: str):
+    COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         #first embed the data
         X_data, y, groups, _, _ = get_from_csv(data_file = data_path, to_drop=['colType'])
@@ -88,7 +89,7 @@ def get_variables(model, num_processors: int, split_model: str, data_path: str, 
         X_data, y, groups, embed_size, data_count = get_from_csv(data_file = model.embed_data_file, to_drop=['colType','datasetName']) 
         X_data = X_data.to_numpy()      
         #format jobs list to split across processors
-        jobs = get_jobs_list(X_data = X_data, groups = groups, size=num_processors, cross_type=split_model)
+        jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=model.split_type)
     else:
         embed_size = None
         data_count = None
@@ -99,8 +100,11 @@ def get_variables(model, num_processors: int, split_model: str, data_path: str, 
         X_data = np.empty((data_count, embed_size), dtype='d')
         jobs = None
         y = None
-    
-    return X_data, jobs, y
+    #get the values from the root processor
+    y = COMM.bcast(y,root=0)
+    jobs = COMM.scatter(jobs, root=0)
+    COMM.Bcast([X_data, MPI.FLOAT], root=0)
+    return X_data, jobs, y, COMM.rank
 
 """
 Gets the list of jobs for the multiprocessor system, this is a list based on the number of
@@ -111,22 +115,32 @@ Returns
 list_jobs_total (list)
 """
 def get_jobs_list(X_data, groups, size: int, cross_type):
-    if (cross_type=='LeaveOneGroupOut'):
-        splitter = LeaveOneGroupOut()
-    elif(cross_type=='GroupShuffleSplit'):
-        splitter = GroupShuffleSplit(n_splits=9, train_size=0.7, random_state=12)
-    elif(cross_type=='ShuffleSplit'):
-        splitter = ShuffleSplit(n_splits=1, train_size=0.7, random_state=36)
-    else:
-        raise ValueError("Type of splitting not available")
-    jobs = list(splitter.split(X_data, groups=groups))
+    jobs = list(cross_type.split(X_data, groups=groups))
     list_jobs_total = [list() for i in range(size)]
     for i in range(len(jobs)):
         j = i % size
         list_jobs_total[j].append(jobs[i])
     print("Each processor has at most {} jobs".format(len(list_jobs_total[0])))
     return list_jobs_total
-    
+
+"""
+Gathers the cross validation results from all processors
+
+Returns
+ - results: (pd.DataFrame) - contain f1 and accuracy scores labeled accordingly
+"""    
+def gather_results(results_init, model_name, root = 0):
+    COMM = MPI.COMM_WORLD    
+    results_init = MPI.COMM_WORLD.gather(results_init, root = root)
+    #pull all results together and broadcast across processors
+    if (COMM.rank == root):
+        print("Finished cross validation!")
+        results = compile_results(results_final=[_i for temp in results_init for _i in temp], model_name= model_name)
+    else:
+        results = None
+    results = COMM.bcast(results, root=root)
+    return results
+        
 """
 Runs model with grouped leave-one-out cross validation, grouped by dataset_names.
 
@@ -134,55 +148,34 @@ Returns
 -------
 results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
-def evaluate_model(model, data_path: str, split_model: str):   
-    #start the MPI
-    COMM = MPI.COMM_WORLD
+def evaluate_model(model, data_path: str):   
     #get the variables for cross validation
-    X_data, jobs, y = get_variables(model=model, num_processors=COMM.size, split_model=split_model, data_path=data_path, COMM=COMM)
-    #get the values from the root processor
-    y = COMM.bcast(y,root=0)
-    jobs = COMM.scatter(jobs, root=0)
-    COMM.Bcast([X_data, MPI.FLOAT], root=0)
+    X_data, jobs, y, rank = get_variables(model=model, data_path=data_path)
     #run cross-validation on all the different processors
     results_init = []
     for it,job in enumerate(jobs):
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, rank=COMM.rank, iter_num = it))
-    #gather results from processors
-    results_init = MPI.COMM_WORLD.gather(results_init, root = 0)
+        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, rank=rank, iter_num = it))
     del jobs
-    #compile and save the results
-    if (COMM.rank == 0):
-        del X_data
-        del y
-        print("Finished cross validation!")
-        results = compile_results(results_final = [_i for temp in results_init for _i in temp], model_name = model.model_name)
-    else:
-        results = None
-    results = COMM.bcast(results,root=0)
+    #get the total results of the cross_validation tests
+    results = gather_results(results_init, model_name=model.model_name, root=0)
     return results
-
+    
 """
-Saves predictions from grouped leave-one-out cross validation, grouped by dataset_names.
+Saves the results to csv file in a structured form
 
 Returns
 -------
 None
 """
-def _save_results(save_dir: str, model_name: str, dataset_names: pd.Series, X: pd.DataFrame, y: pd.Series, y_hat: pd.Series):
-    data = pd.DataFrame({
-        'datasetName': dataset_names.values,
-        'colType': y.values,
-        'colType_predicted': y_hat.values,
-    })
-
-    filename = 'predictions_{}.csv'.format(model_name)
-    path = os.path.join(save_dir, filename)
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-
-    with open(path, 'w') as f:
-        data.to_csv(f)
+def save_results(results_total, model_name: str):
+    COMM = MPI.COMM_WORLD
+    if (COMM.rank == 0):
+        print("Finished model {}".format(model_name))
+        print(results_total)
+        #now save all of the results
+        results_total.to_csv('models_final_cross_val.csv', index=False)
+    COMM.barrier()
 
 """
 Runs models with grouped leave-one-out cross validation, grouped by dataset_names.
@@ -192,16 +185,11 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, data_path=None, split_model='LeaveOneGroupOut'):
+def run_models(initialized_models: list, data_path=None):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
-        results = evaluate_model(model=model, data_path=data_path, split_model=split_model)
-        COMM = MPI.COMM_WORLD
-        if (COMM.rank == 0):
-            print("Finished model {}".format(model.model_name))
-            print(results)
-            results_total = results_total.append(results)
-            #now save all of the results        
-            results_total.to_csv('models_final_cross_val.csv',index=False)
-        COMM.barrier()
+        results = evaluate_model(model=model, data_path=data_path)
+        results_total = results_total.append(results)
+        
+    save_results(results_total=results_total, model_name=model.model_name)
         

@@ -7,7 +7,7 @@ import sent2vec
 
 
 class MetaDataProfiler(ModelBase):
-    def __init__(self, model, use_col_name_only: str, embedding_type: str, EMBEDDING_WEIGHTS_PATH: str, model_name: str, balance_type: str, balance: bool, embed_data_file: str):
+    def __init__(self, model, use_col_name_only: str, embedding_type: str, EMBEDDING_WEIGHTS_PATH: str, model_name: str, balance_type: str, balance: bool, embed_data_file: str, split_type):
         super().__init__()
         if (use_col_name_only is True):
             self.X_labels = ['colName']
@@ -21,6 +21,7 @@ class MetaDataProfiler(ModelBase):
         self.balance = balance
         self.embed_data_file = embed_data_file
         self.loaded_embedding_model = False
+        self.split_type = split_type
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)
