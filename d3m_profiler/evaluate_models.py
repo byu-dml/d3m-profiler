@@ -168,13 +168,13 @@ Returns
 -------
 None
 """
-def save_results(results_total, model_name: str):
+def save_results(results_total, model_name: str, file_to_save: str):
     COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         print("Finished model {}".format(model_name))
         print(results_total)
         #now save all of the results
-        results_total.to_csv('models_final_cross_val.csv', index=False)
+        results_total.to_csv(file_to_save, index=False)
     COMM.barrier()
 
 """
@@ -185,11 +185,11 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, data_path=None):
+def run_models(initialized_models: list, data_path=None, save_results_file=None):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
         results = evaluate_model(model=model, data_path=data_path)
         results_total = results_total.append(results)
         
-    save_results(results_total=results_total, model_name=model.model_name)
+    save_results(results_total=results_total, model_name=model.model_name, file_to_save=save_results_file)
         
