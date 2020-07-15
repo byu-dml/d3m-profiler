@@ -15,7 +15,9 @@ def embed(model, data_to_embed: pd.DataFrame):
     print("Starting Embedding")
     embeddings = []
     for i in data_to_embed.columns:
-        embedding = model.encode_data(data_to_embed[i].str.lower())
+        #x = data_to_embed[i].apply(str).str.lower().apply(lambda x: type(x)).value_counts()
+        #print(x)
+        embedding = model.encode_data(data_to_embed[i].apply(str).str.lower())
         embeddings.append(embedding)
         print("Finished embedding {}".format(i))          
 

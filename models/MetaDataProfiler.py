@@ -36,11 +36,11 @@ class MetaDataProfiler(ModelBase):
             if (self.loaded_embedding_model is False):
                 self.embedding_model = sent2vec.Sent2vecModel()
                 self.embedding_model.load_model(self.EMBEDDING_WEIGHTS_PATH)
-            embedding = self.embedding_model.embed_sentences(X.str.lower())
+            embedding = self.embedding_model.embed_sentences(X)
         elif (self.embedding_type == 'SentenceTransformer'):
             if (self.loaded_embedding_model is False):
                 self.embedding_model = SentenceTransformer(self.EMBEDDING_WEIGHTS_PATH)
-            embedding = self.embedding_model.encode(X.str.lower())
+            embedding = self.embedding_model.encode(X)
         else:
             raise ValueError("{} is not a valid embedding_type".format(self.embedding_type))
         self.loaded_embedding_model = True
