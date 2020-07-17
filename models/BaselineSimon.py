@@ -51,6 +51,7 @@ class BaselineSimon(ModelBase):
     def predict(self, X):
         X = np.vstack(X.tolist())
         probabilities = self.model.predict(X, verbose=1)
+        print(probabilities)
         prediction_indices = probabilities > self.P_THRESHOLD
         y_pred = np.zeros(probabilities.shape)
         y_pred[np.arange(len(probabilities)), probabilities.argmax(1)] = 1

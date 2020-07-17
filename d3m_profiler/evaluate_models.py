@@ -42,7 +42,7 @@ def get_from_file(data_file: str, to_drop: list, pkl: bool):
     if (pkl is True):
         data = pickle.load( open( data_file, "rb" ) )
     else:
-        data = pd.read_csv(data_file, index_col=0)
+        data = pd.read_csv(data_file)
     X_data = data.drop(to_drop,axis=1)
     y = data['colType']
     data_count = len(y)

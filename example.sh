@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --time=3:00:00   # walltime
-#SBATCH --ntasks=10   # number of processor cores (i.e. tasks)
-#SBATCH --nodes=5  # number of nodes
+#SBATCH --time=3:30:00   # walltime
+#SBATCH --ntasks=2   # number of processor cores (i.e. tasks)
+#SBATCH --nodes=1  # number of nodes
 #SBATCH --gres=gpu:2 #number of gpus
 #SBATCH --mem-per-cpu=20000M   # memory per CPU core
 #SBATCH -J "Total Tester"   # job name
