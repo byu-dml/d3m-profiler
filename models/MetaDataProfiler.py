@@ -7,7 +7,7 @@ import sent2vec
 
 
 class MetaDataProfiler(ModelBase):
-    def __init__(self, model, use_col_name_only: str, embedding_type: str, EMBEDDING_WEIGHTS_PATH: str, model_name: str, balance_type: str, balance: bool, embed_data_file: str, split_type):
+    def __init__(self, model, use_col_name_only: str, embedding_type: str, EMBEDDING_WEIGHTS_PATH: str, model_name: str, balance_type: str, balance: bool, embed_data_file: str, split_type, data_path: str, pkl=False):
         super().__init__()
         if (use_col_name_only is True):
             self.X_labels = ['colName']
@@ -22,6 +22,8 @@ class MetaDataProfiler(ModelBase):
         self.embed_data_file = embed_data_file
         self.loaded_embedding_model = False
         self.split_type = split_type
+        self.pkl=pkl
+        self.data_path = data_path
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)
@@ -31,20 +33,26 @@ class MetaDataProfiler(ModelBase):
                 X, y = rebalance(X, y, self.balance_type)
         self.model.fit(X, y)
 
-    def encode_data(self, X):
+    def encode_data(self, X, y):
+        X = X[self.X_labels]
         if (self.embedding_type == 'sent2vec'):
-            if (self.loaded_embedding_model is False):
-                self.embedding_model = sent2vec.Sent2vecModel()
-                self.embedding_model.load_model(self.EMBEDDING_WEIGHTS_PATH)
-            embedding = self.embedding_model.embed_sentences(X)
+            self.embedding_model = sent2vec.Sent2vecModel()
+            self.embedding_model.load_model(self.EMBEDDING_WEIGHTS_PATH)
+            embeddings = []
+            for i in X.columns:
+                embedding = self.embedding_model.embed_sentences(X[i].apply(str).str.lower())
+                embeddings.append(embedding)
+            X_embed = pd.DataFrame(data=np.hstack(tuple(embeddings)), columns=['emb_{}'.format(i) for i in range(len(embeddings)*len(embeddings[0][0]))])
         elif (self.embedding_type == 'SentenceTransformer'):
-            if (self.loaded_embedding_model is False):
-                self.embedding_model = SentenceTransformer(self.EMBEDDING_WEIGHTS_PATH)
-            embedding = self.embedding_model.encode(X)
+            self.embedding_model = SentenceTransformer(self.EMBEDDING_WEIGHTS_PATH)
+            embeddings = []
+            for i in X.columns:
+                embedding = self.embedding_model.encode(X[i].apply(str).str.lower())
+                embeddings.append(embedding)
+            X_embed = pd.DataFrame(data=np.hstack(tuple(embeddings)), columns=['emb_{}'.format(i) for i in range(len(embeddings)*len(embeddings[0][0]))])
         else:
             raise ValueError("{} is not a valid embedding_type".format(self.embedding_type))
-        self.loaded_embedding_model = True
-        return embedding
+        return X_embed, y
 
     def predict(self, X):
         return self.model.predict(X)

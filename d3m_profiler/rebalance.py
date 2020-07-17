@@ -2,7 +2,6 @@ import time
 import numpy as np
 import pandas as pd
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE, SVMSMOTE
-from d3m_profiler.embed import embed
 
 
 """

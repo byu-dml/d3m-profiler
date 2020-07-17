@@ -7,30 +7,21 @@ from mpi4py import MPI
 import os
 from os import path
 import time
-
-"""
-Initializes a model based on model weights
-"""
-def embed(model, data_to_embed: pd.DataFrame):
-    print("Starting Embedding")
-    embeddings = []
-    for i in data_to_embed.columns:
-        #x = data_to_embed[i].apply(str).str.lower().apply(lambda x: type(x)).value_counts()
-        #print(x)
-        embedding = model.encode_data(data_to_embed[i].apply(str).str.lower())
-        embeddings.append(embedding)
-        print("Finished embedding {}".format(i))          
-
-    return pd.DataFrame(data=np.hstack(tuple(embeddings)), columns=['emb_{}'.format(i) for i in range(len(embeddings)*len(embeddings[0][0]))])
+import pickle
 
 
 def create_save_embeddings(model, df: pd.DataFrame, y_data, groups):
     #check if the embedded file already exists
     if (not path.exists(model.embed_data_file)):
         start = time.time()
-        embedding = embed(model=model, data_to_embed=df[model.X_labels])
+        embedding, y_data = model.encode_data(df, y_data)
         #save the DataFrame   
-        pd.concat([pd.DataFrame({'datasetName': groups, 'colType': y_data}), embedding],axis=1).to_csv(model.embed_data_file)
+        if (model.pkl is False):
+            pd.concat([pd.DataFrame({'datasetName': groups}), y_data, embedding], axis=1).to_csv(model.embed_data_file)
+        else:
+            embedding = pd.concat([pd.DataFrame({'datasetName': groups}), y_data, embedding],axis=1)
+            
+            pickle.dump(embedding, open(model.embed_data_file, "wb" ))
         end = time.time()
         print("Time to embed "+str(np.round(end-start,3)))
     else:

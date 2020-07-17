@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 from d3m_profiler import rebalance
-from d3m_profiler import embed
+from d3m_profiler.embed import create_save_embeddings
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
 from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit, GroupKFold, ShuffleSplit
@@ -38,15 +38,22 @@ Returns
 ------
 
 """
-def get_from_csv(data_file: str, to_drop: list):
-    
-    data = pd.read_csv(data_file)
+def get_from_file(data_file: str, to_drop: list, pkl: bool):
+    if (pkl is True):
+        data = pickle.load( open( data_file, "rb" ) )
+    else:
+        data = pd.read_csv(data_file, index_col=0)
     X_data = data.drop(to_drop,axis=1)
     y = data['colType']
-    num_rows = len(y)
+    data_count = len(y)
     embed_size = len(X_data.iloc[0])
+    #handles 2-dimensional data cases
+    if (isinstance(embed_size, tuple)):
+        size_data = tuple([data_count] + list(embed_size))
+    else:
+        size_data = (data_count, embed_size)
     groups = data['datasetName']
-    return X_data, y, groups, embed_size, num_rows
+    return X_data, y, groups, size_data
     
 """
 Compiles the results from different processors onto the root processor
@@ -63,10 +70,10 @@ def compile_results(model_name:str, results_final: list):
         y_test += test
         y_hat += hat
     accuracy = accuracy_score(y_test, y_hat)
+    print(y_test, y_hat)
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
-    conf_matrix = confusion_matrix(y_test, y_hat) 
     results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     return results
    
@@ -79,25 +86,23 @@ Returns
 Tuple(X_data, jobs, y)
 
 """
-def get_variables(model, data_path: str):
+def get_variables(model):
     COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         #first embed the data
-        X_data, y, groups, _, _ = get_from_csv(data_file = data_path, to_drop=['colType'])
-        embed.create_save_embeddings(model, X_data, y, groups)
+        X_data, y, groups, _ = get_from_file(data_file = model.data_path, to_drop=['colType'], pkl=model.pkl)
+        create_save_embeddings(model, X_data, y, groups)
         #now get the variables from the csv
-        X_data, y, groups, embed_size, data_count = get_from_csv(data_file = model.embed_data_file, to_drop=['colType','datasetName']) 
+        X_data, y, groups, size_data = get_from_file(data_file = model.embed_data_file, to_drop=['colType','datasetName'], pkl=model.pkl)
         X_data = X_data.to_numpy()      
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=model.split_type)
     else:
-        embed_size = None
-        data_count = None
-    embed_size = COMM.bcast(embed_size)
-    data_count = COMM.bcast(data_count)    
+        size_data = None
+    size_data = COMM.bcast(size_data)    
     COMM.barrier()        
     if (COMM.rank != 0):
-        X_data = np.empty((data_count, embed_size), dtype='d')
+        X_data = np.empty(size_data, dtype='d')
         jobs = None
         y = None
     #get the values from the root processor
@@ -148,9 +153,9 @@ Returns
 -------
 results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
-def evaluate_model(model, data_path: str):   
+def evaluate_model(model):   
     #get the variables for cross validation
-    X_data, jobs, y, rank = get_variables(model=model, data_path=data_path)
+    X_data, jobs, y, rank = get_variables(model=model)
     #run cross-validation on all the different processors
     results_init = []
     for it,job in enumerate(jobs):
@@ -185,10 +190,10 @@ Returns
 -------
 None
 """
-def run_models(initialized_models: list, data_path=None, save_results_file=None):
+def run_models(initialized_models: list, save_results_file=None):
     results_total = pd.DataFrame(columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
     for iter_num, model in enumerate(initialized_models):
-        results = evaluate_model(model=model, data_path=data_path)
+        results = evaluate_model(model=model)
         results_total = results_total.append(results)
         
     save_results(results_total=results_total, model_name=model.model_name, file_to_save=save_results_file)
