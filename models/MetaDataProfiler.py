@@ -4,6 +4,8 @@ from models.ModelBase import ModelBase
 from d3m_profiler.rebalance import rebalance_SMOTE as rebalance
 from sentence_transformers import SentenceTransformer
 import sent2vec
+import warnings
+warnings.filterwarnings("ignore")
 
 
 class MetaDataProfiler(ModelBase):
@@ -24,6 +26,7 @@ class MetaDataProfiler(ModelBase):
         self.split_type = split_type
         self.pkl=pkl
         self.data_path = data_path
+        self.map = False
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)

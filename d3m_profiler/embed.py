@@ -8,6 +8,8 @@ import os
 from os import path
 import time
 import pickle
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def create_save_embeddings(model, df: pd.DataFrame, y_data, groups):

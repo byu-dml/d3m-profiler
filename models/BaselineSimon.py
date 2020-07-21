@@ -4,6 +4,9 @@ import numpy as np
 from Simon import Simon
 from Simon.Encoder import Encoder
 import pandas as pd
+import pickle
+import warnings
+warnings.filterwarnings("ignore")
 
 class BaselineSimon(ModelBase):
     def __init__(self, split_type, embed_data_file: str, data_path: str, num_epochs=5, batch_size=64, max_cells=100, max_len=20, model_name='SIMON', pkl=True):
@@ -25,12 +28,18 @@ class BaselineSimon(ModelBase):
         self.pkl = pkl
         self.embed_data_file = embed_data_file
         self.data_path = data_path
+        self.map_path = 'simon_map.pkl'
+        self.map = True
 
     def encode_data(self, raw_data, header):
-        header_lists = [[i] for i in header.to_numpy()]
-        self.encoder = Encoder(categories=np.unique(header))
+        raw_data = np.asarray(list(raw_data['values']))
+        header = pd.DataFrame(header).to_numpy()
+        unique_list = np.unique(header)
+        dict_map = {it:unique_list[it] for it in range(len(unique_list))}
+        pickle.dump(dict_map, open(self.map_path, 'wb'))
+        self.encoder = Encoder(categories=unique_list)
         self.encoder.process(raw_data, self.MAX_CELLS)
-        X, y = self.encoder.encode_data(raw_data, header_lists, self.MAX_LEN)
+        X, y = self.encoder.encode_data(raw_data, header, self.MAX_LEN)
         data_x = pd.DataFrame(columns=['embedding'])
         data_x['embedding'] = list(X)
         data_y = pd.DataFrame(columns=['colType'])
@@ -51,11 +60,12 @@ class BaselineSimon(ModelBase):
     def predict(self, X):
         X = np.vstack(X.tolist())
         probabilities = self.model.predict(X, verbose=1)
-        print(probabilities)
         prediction_indices = probabilities > self.P_THRESHOLD
-        y_pred = np.zeros(probabilities.shape)
+        y_pred = np.zeros(probabilities.shape, dtype=int)
         y_pred[np.arange(len(probabilities)), probabilities.argmax(1)] = 1
-        return y_pred
+        mapping = pickle.load(open(self.map_path,"rb"))
+        y_pred_final = self._map_results(np.argmax(y_pred, axis=1), mapping)
+        return y_pred_final
         
     @staticmethod
     def _setup_test_sets(X, y, random_state=None):
@@ -80,3 +90,8 @@ class BaselineSimon(ModelBase):
         data = type('data_type', (object,),
                     {'X_train': X_train, 'X_cv_test': X_cv_test, 'y_train': y_train, 'y_cv_test': y_cv_test})
         return data
+        
+    @staticmethod
+    def _map_results(y, mapping):
+        y_results = [mapping[i] for i in y]
+        return y_results

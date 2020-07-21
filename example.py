@@ -4,6 +4,8 @@ from models.BaselineSimon import BaselineSimon
 from sklearn.model_selection import LeaveOneGroupOut, GroupShuffleSplit, ShuffleSplit
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
+import warnings
+warnings.filterwarnings("ignore")
 
 #====================
 #this is an example of a SIMON and d3m-profiler RandomForestClassifier model
@@ -25,6 +27,6 @@ model_SIMON = BaselineSimon(split_type=split_type, embed_data_file=simon_embed_p
 model_random_forest = MetaDataProfiler(model=model_comp, use_col_name_only=True, embedding_type='SentenceTransformer', EMBEDDING_WEIGHTS_PATH=weights_path, model_name='RandomForest_ColName_Shuffle_1', balance_type='SMOTE', balance='True', embed_data_file=meta_embed_path, split_type=split_type, data_path=meta_data_path)
 
 #get both the models to run with the profiler
-initialized_models = [model_random_forest, model_SIMON]
+initialized_models = [model_SIMON, model_random_forest]
 #calling this will save all of the initialized model score results to the save_results_file
 evaluate_models.run_models(initialized_models=initialized_models, save_results_file=file_to_save)

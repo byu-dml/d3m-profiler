@@ -11,6 +11,8 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score, f1_score
 import pickle
 from mpi4py import MPI
+import warnings
+warnings.filterwarnings("ignore")
 """
 Executes a fold from the group of folds.
 
@@ -25,7 +27,11 @@ def fit_predict_model(X_train, y_train, X_test, y_test, model, rank=None, iter_n
     del y_train
     #predict on the model
     y_hat = list(model.predict(X_test))
-    y_test = list(y_test)
+    if (model.map is True):
+        y_test = np.vstack(y_test.tolist())
+        y_test = model._map_results(np.argmax(y_test,axis=1), pickle.load(open(model.map_path,"rb")))
+    else:
+        y_test = list(y_test)
     if (rank is not None):
         print("Finished fold {} on processor {}".format(iter_num+1,rank))
     return y_hat, y_test
@@ -69,8 +75,8 @@ def compile_results(model_name:str, results_final: list):
     for hat, test in results_final:
         y_test += test
         y_hat += hat
+    print(y_hat, y_test)
     accuracy = accuracy_score(y_test, y_hat)
-    print(y_test, y_hat)
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
