@@ -48,7 +48,6 @@ def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, writ
                 output.append(column_data)
     if write_path:
         pd.DataFrame(output).to_pickle(write_path)
-        return None
     return pd.DataFrame(output)
 
 

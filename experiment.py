@@ -45,7 +45,7 @@ def score(model: ModelBase, X_test, y_test):
 
 def parse_data(force=False):
     if force or not os.path.isfile(PRIVATE_DATA_FILE):
-        build_table(PRIVATE_DATA_DIR, include_data=True, max_cells=MAX_CELLS, max_len=MAX_LEN, write_path=PRIVATE_DATA_FILE)
+        return build_table(PRIVATE_DATA_DIR, include_data=True, max_cells=MAX_CELLS, max_len=MAX_LEN, write_path=PRIVATE_DATA_FILE)
     return pd.read_pickle(PRIVATE_DATA_FILE)
 
 
