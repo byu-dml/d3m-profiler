@@ -16,7 +16,11 @@ class MetadataProfiler(ModelBase):
         unique, counts = np.unique(y, return_counts=True)
         balanced = len(np.unique(counts)) == 1
         if not balanced:
-            X, y = rebalance(X, y, 'smote')
+            try:
+                X, y = rebalance(X, y, 'smote')
+            except ValueError as e:
+                # TODO run some other kind of rebalancing
+                print(e)
         self.model.fit(X, y)
 
     def encode_data(self, X, y):
