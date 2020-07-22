@@ -18,8 +18,6 @@ class TableKeys(Enum):
 
 logger = logging.getLogger(__name__)
 
-ID_BLACKLIST = ['124_153_svhn_cropped_dataset']
-
 
 def get_datasets(datasets_dir: str):
     dataset_docs, problem_docs = get_datasets_and_problems(datasets_dir)
@@ -30,8 +28,6 @@ def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, writ
     logging.basicConfig(filename=logfile_path, level=logging.DEBUG)
     output = []
     for dataset_id, dataset_doc_path in get_datasets(datasets_dir).items():
-        if dataset_id in ID_BLACKLIST:
-            continue
         dataset = get_dataset(dataset_doc_path)
         metadata = dataset.metadata.query(())
         for resource in dataset.keys():
