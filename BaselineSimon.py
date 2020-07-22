@@ -15,7 +15,7 @@ class BaselineSimon(ModelBase):
         self.P_THRESHOLD = 0.3
         self.MAX_CELLS = max_cells
         self.MAX_LEN = max_len
-        self.CHECKPOINT_DIR = './simon/Simon/pretrained_models/'
+        self.CHECKPOINT_DIR = './simon_pretrained_models/'
         if not os.path.isdir(self.CHECKPOINT_DIR):
             os.makedirs(self.CHECKPOINT_DIR)
 
@@ -25,10 +25,10 @@ class BaselineSimon(ModelBase):
         self.classifier = None
         self.model = None
 
-    def encode_data(self, raw_data, header):
-        self.encoder = Encoder(categories=np.unique(header))
-        self.encoder.process(raw_data, self.MAX_CELLS)
-        X, y = self.encoder.encode_data(raw_data, header, self.MAX_LEN)
+    def encode_data(self, X, y):
+        self.encoder = Encoder(categories=np.unique(y))
+        self.encoder.process(X, self.MAX_CELLS)
+        X, y = self.encoder.encode_data(X, y, self.MAX_LEN)
         return X, y
 
     def fit(self, X, y):
