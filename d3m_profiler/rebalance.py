@@ -1,5 +1,6 @@
 from multiprocessing import cpu_count
 import pandas as pd
+import numpy as np
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE
 
 _NUM_THREADS = cpu_count() - 1
@@ -111,8 +112,9 @@ Returns
 rebalanced_df: pandas.DataFrame
     The rebalanced DataFrame 
 """
-def rebalance_SMOTE(X_embedded: pd.DataFrame, y: pd.Series, method: str):
-    k_neighbors = y.value_counts().min() - 1
-    assert k_neighbors > 0, 'Not enough data to rebalance. Must be more than 1:.'
+def rebalance_SMOTE(X_embedded, y, method: str):
+    k_neighbors = min(np.unique(y, return_counts=True)[1]) - 1  # number of neighbors not including self
+    if k_neighbors < 1:
+        raise ValueError(f'Not enough data to rebalance. K-Neighbors must be 1 or more (is {k_neighbors}).')
     sm = _configure_SMOTE(method, k_neighbors=k_neighbors)
     return sm.fit_resample(X_embedded, y)
