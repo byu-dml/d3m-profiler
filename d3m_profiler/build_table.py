@@ -1,10 +1,19 @@
 import logging
 import sys
 import re
+from enum import Enum
 import pandas as pd
 from d3m.container.dataset import get_dataset, SEMANTIC_TYPES_TO_D3M_COLUMN_TYPES, SEMANTIC_TYPES_TO_D3M_ROLES
 from d3m.utils import get_datasets_and_problems
 from d3m.metadata import base as metadata_base
+
+
+class TableKeys(Enum):
+    DATASET_NAME = 'datasetName'
+    DESCRIPTION = 'description'
+    COLUMN_NAME = 'colName'
+    COLUMN_TYPE = 'colType'
+    COLUMN_DATA = 'data'
 
 
 logger = logging.getLogger(__name__)
@@ -33,13 +42,13 @@ def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, writ
             for column in range(resource_metadata['length']):
                 raw_column_metadata = dataset.metadata.query((resource, metadata_base.ALL_ELEMENTS, column))
                 column_data = {
-                    'datasetName': metadata['name'],
-                    'description': metadata.get('description', ''),
-                    'colName': raw_column_metadata['name'],
-                    'colType': get_semantic_column_type(raw_column_metadata['semantic_types']),
+                    TableKeys.DATASET_NAME.value: metadata['name'],
+                    TableKeys.DESCRIPTION.value: metadata.get('description', ''),
+                    TableKeys.COLUMN_NAME.value: raw_column_metadata['name'],
+                    TableKeys.COLUMN_TYPE.value: get_semantic_column_type(raw_column_metadata['semantic_types']),
                 }
                 if include_data:
-                    column_data['data'] = list(data[raw_column_metadata['name']])
+                    column_data[TableKeys.COLUMN_DATA.value] = list(data[raw_column_metadata['name']])
                 output.append(column_data)
     if write_path:
         pd.DataFrame(output).to_pickle(write_path)

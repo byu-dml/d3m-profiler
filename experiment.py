@@ -4,16 +4,17 @@ import os.path
 from sklearn.metrics import accuracy_score, f1_score, multilabel_confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
 import time
-from d3m_profiler.build_table import build_table
+from d3m_profiler.build_table import build_table, TableKeys
 from BaselineSimon import BaselineSimon
 from MetadataProfiler import MetadataProfiler
 import ModelBase
 
 
-DATASET_NAME = 'datasetName'
-DESCRIPTION = 'description'
-COLUMN_NAME = 'colName'
-COLUMN_TYPE = 'colType'
+DATASET_NAME = TableKeys.DATASET_NAME.value
+DESCRIPTION = TableKeys.DESCRIPTION.value
+COLUMN_NAME = TableKeys.COLUMN_NAME.value
+COLUMN_TYPE = TableKeys.COLUMN_TYPE.value
+COLUMN_DATA = TableKeys.COLUMN_DATA.value
 METADATA_X_LABELS = [COLUMN_NAME]
 
 MAX_LEN = 20
@@ -60,7 +61,7 @@ def standardize_data(data):
 def main():
     # parse data
     data = parse_data()
-    X_data = standardize_data(data['data'])
+    X_data = standardize_data(data[COLUMN_DATA])
     X_metadata = data[METADATA_X_LABELS]
     y = data[COLUMN_TYPE].to_numpy().reshape(-1, 1)
     groups = data[DATASET_NAME]
