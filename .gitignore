@@ -7,7 +7,7 @@ results*/*
 # Distribution / packaging
 *.egg-info
 
-private_d3m_unembed_data.csv.gz
+private_d3m_unembed_data.pkl.gz
 
 simon/
 logs/

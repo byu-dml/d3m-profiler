@@ -6,11 +6,10 @@ from d3m_profiler.rebalance import rebalance_SMOTE as rebalance
 
 
 class MetadataProfiler(ModelBase):
-    def __init__(self, X_labels=None):
+    def __init__(self, model=RandomForestClassifier):
         super().__init__()
-        self.X_labels = ['datasetName', 'description', 'colName'] if X_labels is None else X_labels
         self.MODEL_WEIGHTS_PATH = 'torontobooks_unigrams.bin'
-        self.model = RandomForestClassifier()
+        self.model = model()
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)
@@ -24,7 +23,7 @@ class MetadataProfiler(ModelBase):
         self.model.fit(X, y)
 
     def encode_data(self, X, y):
-        return embed(X[self.X_labels], self.MODEL_WEIGHTS_PATH), y
+        return embed(X, self.MODEL_WEIGHTS_PATH), y
 
     def predict(self, X):
         return self.model.predict(X)

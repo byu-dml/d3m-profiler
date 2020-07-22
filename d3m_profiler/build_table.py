@@ -1,150 +1,60 @@
-import json
 import logging
-import os
 import sys
-import typing
 import re
 import pandas as pd
-from pandas.errors import ParserError, EmptyDataError
+from d3m.container.dataset import get_dataset, SEMANTIC_TYPES_TO_D3M_COLUMN_TYPES, SEMANTIC_TYPES_TO_D3M_ROLES
+from d3m.utils import get_datasets_and_problems
+from d3m.metadata import base as metadata_base
 
 
 logger = logging.getLogger(__name__)
 
-
-def get_datasets(datasets_dir: str) -> typing.Dict[str, str]:
-    if datasets_dir is None:
-        raise ValueError("Datasets directory has to be provided.")
-
-    datasets: typing.Dict[str, str] = {}
-
-    for dirpath, dirnames, filenames in os.walk(datasets_dir, followlinks=True):
-        if 'datasetDoc.json' in filenames:
-            # Do not traverse further (to not parse "datasetDoc.json" or "problemDoc.json" if they
-            # exists in raw data filename).
-            dirnames[:] = []
-
-            dataset_path = os.path.join(os.path.abspath(dirpath), 'datasetDoc.json')
-
-            try:
-                with open(dataset_path, 'r', encoding='utf8') as dataset_file:
-                    dataset_doc = json.load(dataset_file)
-
-                dataset_id = dataset_doc['about']['datasetID']
-
-                if (
-                    dataset_id[-5:] == '_TEST' or
-                    dataset_id[-6:] == '_TRAIN' or
-                    dataset_id[-6:] == '_SCORE' or
-                    dataset_id[-21:] == '_MIN_METADATA_dataset'
-                ):
-                    continue
-
-                if dataset_id in datasets:
-                    logger.warning(
-                        "Duplicate dataset ID '%(dataset_id)s': '%(old_dataset)s' and '%(dataset)s'", {
-                            'dataset_id': dataset_id,
-                            'dataset': dataset_path,
-                            'old_dataset': datasets[dataset_id],
-                        },
-                    )
-                else:
-                    datasets[dataset_id] = dataset_path
-
-            except (ValueError, KeyError):
-                logger.exception(
-                    "Unable to read dataset '%(dataset)s'.", {
-                        'dataset': dataset_path,
-                    },
-                )
-
-    return datasets
+ID_BLACKLIST = ['124_153_svhn_cropped_dataset']
 
 
-def resource_generator(datasets):
-    for dataset_id, dataset_doc_path in datasets.items():
-        with open(dataset_doc_path, 'r') as dataset_doc:
-            dataset = json.load(dataset_doc)
-            d_name = human_readable_ify(dataset['about']['datasetName'])
-            d_description = dataset['about'].get('description', '')
-
-            for resource in dataset['dataResources']:
-                if 'columns' not in resource:
-                    logger.warning(
-                        "No columns found in a data resource. Dataset ID: '%(d_id)s'; Resource ID: '%(r_id)s'", {
-                            'd_id': dataset_id,
-                            'r_id': resource['resID']
-                        }
-                    )
-                    continue
-                yield resource, d_name, d_description, dataset_doc_path
+def get_datasets(datasets_dir: str):
+    dataset_docs, problem_docs = get_datasets_and_problems(datasets_dir)
+    return {key: value for key, value in dataset_docs.items() if not key.endswith(('_SCORE', '_TEST', '_TRAIN'))}
 
 
-def extract_columns(datasets):
+def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, write_path=None, logfile_path='/dev/null'):
+    logging.basicConfig(filename=logfile_path, level=logging.DEBUG)
     output = []
-    for resource, d_name, d_description, dataset_doc_path in resource_generator(datasets):
-        output.extend(get_metadata_from_resource(resource, d_name, d_description))
-    return pd.DataFrame(output)
-
-
-def extract_data_values(datasets, max_cells, max_len):
-    output = []
-    for resource, d_name, d_description, dataset_doc_path in resource_generator(datasets):
-        data = get_data_from_resource(resource, dataset_doc_path, d_name, max_cells=max_cells, max_len=max_len)
-        if data is None:
+    for dataset_id, dataset_doc_path in get_datasets(datasets_dir).items():
+        if dataset_id in ID_BLACKLIST:
             continue
-        output.extend(data)
+        dataset = get_dataset(dataset_doc_path)
+        metadata = dataset.metadata.query(())
+        for resource in dataset.keys():
+            resource_metadata = dataset.metadata.query((resource, metadata_base.ALL_ELEMENTS)).get('dimension')
+            data = dataset.get(resource)[:max_cells]
+            data.apply(lambda x: x.str.slice(0, max_len))
+
+            for column in range(resource_metadata['length']):
+                raw_column_metadata = dataset.metadata.query((resource, metadata_base.ALL_ELEMENTS, column))
+                column_data = {
+                    'datasetName': metadata['name'],
+                    'description': metadata.get('description', ''),
+                    'colName': raw_column_metadata['name'],
+                    'colType': get_semantic_column_type(raw_column_metadata['semantic_types']),
+                }
+                if include_data:
+                    column_data['data'] = list(data[raw_column_metadata['name']])
+                output.append(column_data)
+    if write_path:
+        pd.DataFrame(output).to_pickle(write_path)
+        return None
     return pd.DataFrame(output)
 
 
-def get_metadata_from_resource(resource, dataset_name, dataset_description):
-    metadata = []
-    for column in resource['columns']:
-        metadata.append({
-            'datasetName': dataset_name,
-            'description': dataset_description,
-            'colName': human_readable_ify(column['colName']),
-            'colType': column['colType']
-        })
-    return metadata
-
-
-def open_dataset(resource, dataset_doc_path, max_cells):
-    if resource['resPath'][-4:] == '.csv':
-        try:
-            data = pd.read_csv(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath']))
-        except (EmptyDataError, ParserError, ValueError):
-            logger.warning(f'Could not open dataset with path {dataset_doc_path}')
-            return None
-    else:
-        values = 0
-        tables = []
-        for entry in os.scandir(os.path.join(os.path.dirname(dataset_doc_path), resource['resPath'])):
-            tables.append(pd.read_csv(entry.path))
-            values += len(tables[-1])
-            if values >= max_cells:
-                break
-        data = pd.concat(tables, ignore_index=True)
-    return data
-
-
-def get_data_from_resource(resource, dataset_doc_path, dataset_name, max_cells=100, max_len=20):
-    data = open_dataset(resource, dataset_doc_path, max_cells)
-    if data is None:
-        return None
-    extracted_data = []
-    for column in resource['columns']:
-        values = list(data[column['colName']].values)
-        if len(values) > max_cells:
-            values = [str(v)[:max_len] for v in values[:max_cells]]
-        else:
-            values = [str(v)[:max_len] for v in values] + ['' for i in range(max_cells - len(values))]
-
-        extracted_data.append({
-            'values': values,
-            'colType': column['colType'],
-            'datasetName': dataset_name
-        })
-    return extracted_data
+def get_semantic_column_type(semantic_types: tuple):
+    for semantic_type in semantic_types:
+        if semantic_type in SEMANTIC_TYPES_TO_D3M_COLUMN_TYPES:
+            return SEMANTIC_TYPES_TO_D3M_COLUMN_TYPES[semantic_type]
+    for semantic_type in semantic_types:
+        if semantic_type in SEMANTIC_TYPES_TO_D3M_ROLES:
+            return SEMANTIC_TYPES_TO_D3M_ROLES[semantic_type]
+    return 'unknown'
 
 
 def human_readable_ify(text: str) -> str:
@@ -157,12 +67,6 @@ def human_readable_ify(text: str) -> str:
     #     LL0 Test Data 23 --> LL0 Test Data 23  [ no change ]
     text = re.sub('((?<![\s\d])\d+$)', ' \\1', text)
     return text
-
-
-def build_table(dataset_path, output_filename='data', logfile_path='/dev/null'):
-    logging.basicConfig(filename=logfile_path, level=logging.DEBUG)
-    data = extract_columns(get_datasets(dataset_path))
-    data.to_csv(output_filename, index=False)
 
 
 if __name__ == '__main__':
