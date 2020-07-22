@@ -54,8 +54,7 @@ def index_generator(data_shape, groups, splitter):
 
 
 def standardize_data(data):
-    length = max(map(len, data))
-    return np.array([x + [''] * (length - len(x)) for x in data])
+    return pd.DataFrame(list(data)).fillna('').to_numpy()
 
 
 def main():
