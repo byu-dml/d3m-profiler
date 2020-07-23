@@ -27,6 +27,7 @@ class MetaDataProfiler(ModelBase):
         self.pkl=pkl
         self.data_path = data_path
         self.map = False
+        self.multi_dim = False
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)

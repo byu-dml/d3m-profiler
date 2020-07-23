@@ -6,15 +6,17 @@ from Simon.Encoder import Encoder
 import pandas as pd
 import pickle
 import warnings
+from mpi4py import MPI
 warnings.filterwarnings("ignore")
 
 class BaselineSimon(ModelBase):
     def __init__(self, split_type, embed_data_file: str, data_path: str, num_epochs=5, batch_size=64, max_cells=100, max_len=20, model_name='SIMON', pkl=True):
         super().__init__()
+        COMM = MPI.COMM_WORLD
         self.P_THRESHOLD = 0.3
         self.MAX_CELLS = max_cells
         self.MAX_LEN = max_len
-        self.CHECKPOINT_DIR = './simon/Simon/pretrained_models/'
+        self.CHECKPOINT_DIR = './simon_{}/Simon/pretrained_models/'.format(COMM.rank)
         if not os.path.isdir(self.CHECKPOINT_DIR):
             os.makedirs(self.CHECKPOINT_DIR)
 
@@ -30,6 +32,7 @@ class BaselineSimon(ModelBase):
         self.data_path = data_path
         self.map_path = 'simon_map.pkl'
         self.map = True
+        self.multi_dim = True
 
     def encode_data(self, raw_data, header):
         raw_data = np.asarray(list(raw_data['values']))
@@ -48,7 +51,7 @@ class BaselineSimon(ModelBase):
 
     def fit(self, X, y):
         y = np.vstack(y.tolist())
-        X = np.vstack(X.tolist()) 
+        X = X
         encoder_max_cells = X.shape[1]
         category_count = y.shape[1]
         self.classifier = Simon(encoder=self.encoder)
@@ -58,7 +61,7 @@ class BaselineSimon(ModelBase):
         self.classifier.train_model(self.batch_size, self.CHECKPOINT_DIR, self.model, self.num_epochs, data)
 
     def predict(self, X):
-        X = np.vstack(X.tolist())
+        X = X
         probabilities = self.model.predict(X, verbose=1)
         prediction_indices = probabilities > self.P_THRESHOLD
         y_pred = np.zeros(probabilities.shape, dtype=int)
@@ -86,7 +89,6 @@ class BaselineSimon(ModelBase):
 
         y_train = y[:train_end]
         y_cv_test = y[train_end:cross_validation_end]
-
         data = type('data_type', (object,),
                     {'X_train': X_train, 'X_cv_test': X_cv_test, 'y_train': y_train, 'y_cv_test': y_cv_test})
         return data

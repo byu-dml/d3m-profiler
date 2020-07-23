@@ -44,7 +44,7 @@ Returns
 ------
 
 """
-def get_from_file(data_file: str, to_drop: list, pkl: bool):
+def get_from_file(data_file: str, to_drop: list, pkl: bool, multi_dim: bool = True):
     if (pkl is True):
         data = pickle.load( open( data_file, "rb" ) )
     else:
@@ -52,7 +52,13 @@ def get_from_file(data_file: str, to_drop: list, pkl: bool):
     X_data = data.drop(to_drop,axis=1)
     y = data['colType']
     data_count = len(y)
-    embed_size = len(X_data.iloc[0])
+    #=======================
+    #THERE HAS TO BE A BETTER WAY TO DO THIS
+    #=========================
+    if (multi_dim is True):
+        embed_size = np.shape(X_data.iloc[0].to_numpy()[0])
+    else:
+        embed_size = len(X_data.iloc[0])
     #handles 2-dimensional data cases
     if (isinstance(embed_size, tuple)):
         size_data = tuple([data_count] + list(embed_size))
@@ -99,22 +105,29 @@ def get_variables(model):
         X_data, y, groups, _ = get_from_file(data_file = model.data_path, to_drop=['colType'], pkl=model.pkl)
         create_save_embeddings(model, X_data, y, groups)
         #now get the variables from the csv
-        X_data, y, groups, size_data = get_from_file(data_file = model.embed_data_file, to_drop=['colType','datasetName'], pkl=model.pkl)
-        X_data = X_data.to_numpy()      
+        X_data, y, groups, size_data = get_from_file(data_file = model.embed_data_file, to_drop=['colType','datasetName'], pkl=model.pkl, multi_dim = model.multi_dim)
+        if (model.multi_dim is True):
+            X_data = np.asarray(list(X_data['embedding']))
+        else:
+            X_data = X_data.to_numpy()      
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=model.split_type)
     else:
         size_data = None
-    size_data = COMM.bcast(size_data)    
+    size_data = COMM.bcast(size_data)
     COMM.barrier()        
     if (COMM.rank != 0):
-        X_data = np.empty(size_data, dtype='d')
+        X_data = None
         jobs = None
         y = None
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
-    COMM.Bcast([X_data, MPI.FLOAT], root=0)
+    X_data = COMM.bcast(X_data, root=0)
+    #================
+    #NOT WORKING FOR SIMON
+    #================
+    #COMM.Bcast([X_data, MPI.INT], root=0)
     return X_data, jobs, y, COMM.rank
 
 """
@@ -141,15 +154,18 @@ Returns
  - results: (pd.DataFrame) - contain f1 and accuracy scores labeled accordingly
 """    
 def gather_results(results_init, model_name, root = 0):
-    COMM = MPI.COMM_WORLD    
+    COMM = MPI.COMM_WORLD 
+    print("Gathering Results") 
     results_init = MPI.COMM_WORLD.gather(results_init, root = root)
+    print("Done Gathering")
     #pull all results together and broadcast across processors
     if (COMM.rank == root):
         print("Finished cross validation!")
         results = compile_results(results_final=[_i for temp in results_init for _i in temp], model_name= model_name)
     else:
+        print(COMM.rank)
         results = None
-    results = COMM.bcast(results, root=root)
+    results = COMM.bcast(results, root=0)
     return results
         
 """
@@ -165,6 +181,7 @@ def evaluate_model(model):
     #run cross-validation on all the different processors
     results_init = []
     for it,job in enumerate(jobs):
+        #print(job)
         train_ind, test_ind = job
         results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, rank=rank, iter_num = it))
     del jobs
