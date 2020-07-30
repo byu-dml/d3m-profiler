@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import csv
+import os
 import os.path
 from datetime import datetime
 from sklearn.metrics import accuracy_score, f1_score, multilabel_confusion_matrix
@@ -22,7 +23,7 @@ METADATA_X_LABELS = [COLUMN_NAME]
 MAX_LEN = 20
 MAX_CELLS = 100
 PRIVATE_DATA_DIR = '/users/data/d3m/datasets/training_datasets/'
-PRIVATE_DATA_FILE = 'private_d3m_unembed_data.pkl.gz'
+PRIVATE_DATA_FILE = os.getenv('PRIVATE_DATA_FILE_DIR', '') + 'private_d3m_unembed_data.pkl.gz'
 
 
 def run_fold(model: ModelBase, X_train, y_train, X_test, y_test):
