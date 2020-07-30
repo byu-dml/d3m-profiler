@@ -1,15 +1,22 @@
 import logging
 import sys
 import re
+from enum import Enum
 import pandas as pd
 from d3m.container.dataset import get_dataset, SEMANTIC_TYPES_TO_D3M_COLUMN_TYPES, SEMANTIC_TYPES_TO_D3M_ROLES
 from d3m.utils import get_datasets_and_problems
 from d3m.metadata import base as metadata_base
 
 
-logger = logging.getLogger(__name__)
+class TableKeys(Enum):
+    DATASET_NAME = 'datasetName'
+    DESCRIPTION = 'description'
+    COLUMN_NAME = 'colName'
+    COLUMN_TYPE = 'colType'
+    COLUMN_DATA = 'data'
 
-ID_BLACKLIST = ['124_153_svhn_cropped_dataset']
+
+logger = logging.getLogger(__name__)
 
 
 def get_datasets(datasets_dir: str):
@@ -21,8 +28,6 @@ def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, writ
     logging.basicConfig(filename=logfile_path, level=logging.DEBUG)
     output = []
     for dataset_id, dataset_doc_path in get_datasets(datasets_dir).items():
-        if dataset_id in ID_BLACKLIST:
-            continue
         dataset = get_dataset(dataset_doc_path)
         metadata = dataset.metadata.query(())
         for resource in dataset.keys():
@@ -33,17 +38,16 @@ def build_table(datasets_dir, include_data=True, max_cells=100, max_len=20, writ
             for column in range(resource_metadata['length']):
                 raw_column_metadata = dataset.metadata.query((resource, metadata_base.ALL_ELEMENTS, column))
                 column_data = {
-                    'datasetName': metadata['name'],
-                    'description': metadata.get('description', ''),
-                    'colName': raw_column_metadata['name'],
-                    'colType': get_semantic_column_type(raw_column_metadata['semantic_types']),
+                    TableKeys.DATASET_NAME.value: metadata['name'],
+                    TableKeys.DESCRIPTION.value: metadata.get('description', ''),
+                    TableKeys.COLUMN_NAME.value: raw_column_metadata['name'],
+                    TableKeys.COLUMN_TYPE.value: get_semantic_column_type(raw_column_metadata['semantic_types']),
                 }
                 if include_data:
-                    column_data['data'] = list(data[raw_column_metadata['name']])
+                    column_data[TableKeys.COLUMN_DATA.value] = list(data[raw_column_metadata['name']])
                 output.append(column_data)
     if write_path:
         pd.DataFrame(output).to_pickle(write_path)
-        return None
     return pd.DataFrame(output)
 
 
@@ -70,4 +74,4 @@ def human_readable_ify(text: str) -> str:
 
 
 if __name__ == '__main__':
-    build_table(sys.argv[1])
+    build_table(datasets_dir=sys.argv[1], write_path=sys.argv[2])

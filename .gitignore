@@ -9,6 +9,6 @@ results*/*
 
 private_d3m_unembed_data.pkl.gz
 
-simon/
+simon_pretrained_models/
 logs/
 unencoded_chars.json
