@@ -74,4 +74,4 @@ def human_readable_ify(text: str) -> str:
 
 
 if __name__ == '__main__':
-    build_table(sys.argv[1])
+    build_table(datasets_dir=sys.argv[1], write_path=sys.argv[2])
