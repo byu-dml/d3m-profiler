@@ -47,6 +47,9 @@ class BaselineSimon(ModelBase):
         y_pred[prediction_indices] = 1
         return y_pred
 
+    def get_note(self):
+        return None
+
     @staticmethod
     def _setup_test_sets(X, y, random_state=None):
         ids = np.arange(len(X))

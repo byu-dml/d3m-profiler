@@ -17,3 +17,7 @@ class ModelBase:
     @abc.abstractmethod
     def encode_data(self, X, y):
         pass
+    
+    @abc.abstractmethod
+    def get_note(self):
+        pass

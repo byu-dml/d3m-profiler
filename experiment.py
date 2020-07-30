@@ -40,6 +40,7 @@ def score(model: ModelBase, X_test, y_test):
         'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M"),
         'fold_index': None,
         'classifier': model.__class__.__name__,
+        'note': None,
         'accuracy_score': round(accuracy_score(y_test, predictions), 4),
         'f1_score_micro': round(f1_score(y_test, predictions, average='micro'), 4),
         'f1_score_macro': round(f1_score(y_test, predictions, average='macro'), 4),
@@ -98,6 +99,7 @@ def main():
         for model, X, y in [simon_tuple, metadata_profiler_tuple]:
             fold_scores = run_fold(model, X[train_indices], y[train_indices], X[test_indices], y[test_indices])
             fold_scores['fold_index'] = fold_index
+            fold_scores['note'] = model.get_note()
             append_results('results_conf_mat.csv', fold_scores)
             fold_scores.pop('confusion_matrix')
             append_results('results.csv', fold_scores)
