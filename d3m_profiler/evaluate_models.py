@@ -27,11 +27,7 @@ def fit_predict_model(X_train, y_train, X_test, y_test, model, rank=None, iter_n
     del y_train
     #predict on the model
     y_hat = list(model.predict(X_test))
-    if (model.map is True):
-        y_test = np.vstack(y_test.tolist())
-        y_test = model._map_results(np.argmax(y_test,axis=1), pickle.load(open(model.map_path,"rb")))
-    else:
-        y_test = list(y_test)
+    y_test = list(y_test['colType'])
     if (rank is not None):
         print("Finished fold {} on processor {}".format(iter_num+1,rank))
     return y_hat, y_test
@@ -49,23 +45,10 @@ def get_from_file(data_file: str, to_drop: list, pkl: bool, multi_dim: bool = Tr
         data = pickle.load( open( data_file, "rb" ) )
     else:
         data = pd.read_csv(data_file)
-    X_data = data.drop(to_drop,axis=1)
-    y = data['colType']
-    data_count = len(y)
-    #=======================
-    #THERE HAS TO BE A BETTER WAY TO DO THIS
-    #=========================
-    if (multi_dim is True):
-        embed_size = np.shape(X_data.iloc[0].to_numpy()[0])
-    else:
-        embed_size = len(X_data.iloc[0])
-    #handles 2-dimensional data cases
-    if (isinstance(embed_size, tuple)):
-        size_data = tuple([data_count] + list(embed_size))
-    else:
-        size_data = (data_count, embed_size)
+    X_data = data.drop(to_drop+['datasetName'],axis=1)
+    y = data[to_drop]
     groups = data['datasetName']
-    return X_data, y, groups, size_data
+    return X_data, y, groups
     
 """
 Compiles the results from different processors onto the root processor
@@ -102,21 +85,13 @@ def get_variables(model):
     COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         #first embed the data
-        X_data, y, groups, _ = get_from_file(data_file = model.data_path, to_drop=['colType'], pkl=model.pkl)
+        X_data, y, groups = get_from_file(data_file = model.data_path, to_drop=['colType'], pkl=model.pkl)
         create_save_embeddings(model, X_data, y, groups)
         #now get the variables from the csv
-        X_data, y, groups, size_data = get_from_file(data_file = model.embed_data_file, to_drop=['colType','datasetName'], pkl=model.pkl, multi_dim = model.multi_dim)
-        if (model.multi_dim is True):
-            X_data = np.asarray(list(X_data['embedding']))
-        else:
-            X_data = X_data.to_numpy()      
+        X_data, y, groups = get_from_file(data_file = model.embed_data_file, to_drop=model.to_drop, pkl=model.pkl) 
         #format jobs list to split across processors
         jobs = get_jobs_list(X_data = X_data, groups = groups, size=COMM.size, cross_type=model.split_type)
     else:
-        size_data = None
-    size_data = COMM.bcast(size_data)
-    COMM.barrier()        
-    if (COMM.rank != 0):
         X_data = None
         jobs = None
         y = None
@@ -124,10 +99,6 @@ def get_variables(model):
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     X_data = COMM.bcast(X_data, root=0)
-    #================
-    #NOT WORKING FOR SIMON
-    #================
-    #COMM.Bcast([X_data, MPI.INT], root=0)
     return X_data, jobs, y, COMM.rank
 
 """
@@ -139,7 +110,7 @@ Returns
 list_jobs_total (list)
 """
 def get_jobs_list(X_data, groups, size: int, cross_type):
-    jobs = list(cross_type.split(X_data, groups=groups))
+    jobs = list(cross_type.split(X=X_data, groups=groups))
     list_jobs_total = [list() for i in range(size)]
     for i in range(len(jobs)):
         j = i % size
@@ -183,7 +154,7 @@ def evaluate_model(model):
     for it,job in enumerate(jobs):
         #print(job)
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data[train_ind], y.iloc[train_ind], X_data[test_ind], y.iloc[test_ind], model, rank=rank, iter_num = it))
+        results_init.append(fit_predict_model(X_data.iloc[train_ind], y.iloc[train_ind], X_data.iloc[test_ind], y.iloc[test_ind], model, rank=rank, iter_num = it))
     del jobs
     #get the total results of the cross_validation tests
     results = gather_results(results_init, model_name=model.model_name, root=0)
