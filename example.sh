@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --time=4:00:00   # walltime
-#SBATCH --ntasks=10   # number of processor cores (i.e. tasks)
+#SBATCH --time=14:00:00   # walltime
+#SBATCH --ntasks=4   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=2  # number of nodes
 #SBATCH --gres=gpu:2 #number of gpus
-#SBATCH --mem-per-cpu=12000M   # memory per CPU core
+#SBATCH --mem-per-cpu=10000M   # memory per CPU core
 #SBATCH -J "Total Tester"   # job name
 
 #add the right thing to the file path

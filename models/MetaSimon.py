@@ -76,7 +76,9 @@ class MetaSimon(ModelBase):
         balanced = len(np.unique(counts)) == 1
         if (self.balance):
             if not balanced:
-                X_meta, y_meta = rebalance(X.drop(['embedding'],axis=1).to_numpy(), y['colType'].to_numpy(), self.balance_type)
+                X_meta, y_meta = rebalance(X.drop(['embedding'],axis=1).to_numpy(), y['colType'], self.balance_type)
+                y_meta = np.asarray(y_meta)
+                print(y_meta)
         else:
             X_meta = X.drop(['embedding'],axis=1).to_numpy()
             y_meta = y['colType'].to_numpy()

@@ -13,10 +13,10 @@ warnings.filterwarnings("ignore")
 #====================
 
 #the file that contains the unembedded data
-data_path = '../data_files/data/total_data_sample.pkl'
+data_path = '../data_files/data/private_d3m_unembed_data.pkl'
 weights_path = '../data_files/SentenceTransformer'
 embed_path ='embedding_both.pkl'
-file_to_save = 'rf_simon_mlp.csv'
+file_to_save = 'rf_simon_mlp_unbal.csv'
 
 model_meta = RandomForestClassifier(random_state=15)
 model_both = MLPClassifier(random_state=12)
