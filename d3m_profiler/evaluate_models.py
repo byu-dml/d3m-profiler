@@ -64,7 +64,6 @@ def compile_results(model_name:str, results_final: list):
     for hat, test in results_final:
         y_test += test
         y_hat += hat
-    print(y_hat, y_test)
     accuracy = accuracy_score(y_test, y_hat)
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
@@ -134,7 +133,6 @@ def gather_results(results_init, model_name, root = 0):
         print("Finished cross validation!")
         results = compile_results(results_final=[_i for temp in results_init for _i in temp], model_name= model_name)
     else:
-        print(COMM.rank)
         results = None
     results = COMM.bcast(results, root=0)
     return results

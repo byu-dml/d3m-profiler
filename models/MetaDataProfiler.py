@@ -15,6 +15,7 @@ class MetaDataProfiler(ModelBase):
             self.X_labels = ['colName']
         else:
             self.X_labels = ['colName', 'datasetName', 'description']
+        self.to_drop = ['colType']
         self.EMBEDDING_WEIGHTS_PATH = EMBEDDING_WEIGHTS_PATH
         self.embedding_type = embedding_type
         self.model_name = model_name
@@ -26,15 +27,16 @@ class MetaDataProfiler(ModelBase):
         self.split_type = split_type
         self.pkl=pkl
         self.data_path = data_path
-        self.map = False
-        self.multi_dim = False
 
     def fit(self, X, y):
         unique, counts = np.unique(y, return_counts=True)
         balanced = len(np.unique(counts)) == 1
         if (self.balance):
             if not balanced:
-                X, y = rebalance(X, y, self.balance_type)
+                X, y = rebalance(X, y['colType'], self.balance_type)
+        else:
+            X = X.to_numpy()
+            y = y['colType'].to_numpy()
         self.model.fit(X, y)
 
     def encode_data(self, X, y):

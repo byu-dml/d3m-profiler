@@ -50,7 +50,6 @@ class MetaSimon(ModelBase):
         embedding_meta = pd.DataFrame(data=embedding_meta, columns=['emb_{}'.format(i) for i in range(len(embedding_meta[0]))])
         #do the simon encoding next!
         simon_data = np.asarray(list(X['values']))
-        print(simon_data)
         header = pd.DataFrame(y).to_numpy()
         unique_list = np.unique(header)
         dict_map = {it:unique_list[it] for it in range(len(unique_list))}
