@@ -11,7 +11,7 @@
 export PATH="$HOME/.local/bin:$PATH"
 
 #load the modules
-module load  miniconda3/4.6 
+module load miniconda3/4.6 
 #activate the environment
 source activate cross
 #load the remaining modules
