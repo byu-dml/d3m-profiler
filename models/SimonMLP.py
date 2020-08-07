@@ -8,11 +8,12 @@ import pandas as pd
 import pickle
 import warnings
 from mpi4py import MPI
-warnings.filterwarnings("ignore")
 import tensorflow as tf
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
 
-class BaselineSimon(ModelBase):
-    def __init__(self, split_type, embed_data_file: str, data_path: str, num_epochs=5, batch_size=64, max_cells=100, max_len=20, model_name='SIMON', pkl=True, seed=13):
+class SimonMLP(ModelBase):
+    def __init__(self, split_type, embed_data_file: str, data_path: str, num_epochs=5, batch_size=64, max_cells=100, max_len=20, model_name='SIMON_MLP', pkl=True, seed=13):
         super().__init__()
         COMM = MPI.COMM_WORLD
         self.P_THRESHOLD = 0.3
@@ -23,6 +24,7 @@ class BaselineSimon(ModelBase):
             os.makedirs(self.CHECKPOINT_DIR)
         self.to_drop = ['colType','colTypeHot']
         self.num_epochs = num_epochs
+        self.mlp = MLPClassifier(random_state=seed)
         self.batch_size = batch_size
         self.split_type = split_type
         self.encoder = None
@@ -67,13 +69,14 @@ class BaselineSimon(ModelBase):
         self.model_simon = self.classifier.generate_model(self.MAX_LEN, encoder_max_cells, category_count)
         self.model_simon.compile(loss='binary_crossentropy', optimizer='adam', metrics=['binary_accuracy'])
         self.classifier.train_model(self.batch_size, self.CHECKPOINT_DIR, self.model_simon, self.num_epochs, data)
+        probabilities = self.model_simon.predict(np.asarray(list(X['embedding'])))
+        mapping = pickle.load(open(self.map_path, "rb"))
+        y_real = self._map_results(np.argmax(y_simon, axis=1), mapping)
+        self.mlp.fit(probabilities, y_real)
 
     def predict(self, X):
         probabilities = self.model_simon.predict(np.asarray(list(X['embedding'])))
-        y_pred = np.zeros(probabilities.shape, dtype=int)
-        y_pred[np.arange(len(probabilities)), probabilities.argmax(1)] = 1
-        mapping = pickle.load(open(self.map_path,"rb"))
-        y_pred_final = self._map_results(np.argmax(y_pred, axis=1), mapping)
+        y_pred_final = list(self.mlp.predict(probabilities))
         return y_pred_final
         
     @staticmethod

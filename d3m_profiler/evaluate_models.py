@@ -169,7 +169,6 @@ def save_results(results_total, model_name: str, file_to_save: str):
     COMM = MPI.COMM_WORLD
     if (COMM.rank == 0):
         print("Finished model {}".format(model_name))
-        print(results_total)
         #now save all of the results
         results_total.to_csv(file_to_save, index=False)
     COMM.barrier()

@@ -10,11 +10,12 @@ import time
 from mpi4py import MPI
 warnings.filterwarnings("ignore")
 from d3m_profiler.rebalance import rebalance_SMOTE as rebalance
+import tensorflow as tf
 from sentence_transformers import SentenceTransformer
 
 
 class MetaSimon(ModelBase):
-    def __init__(self, data_path, embed_data_path, model_meta, model_both, balance, split_type):
+    def __init__(self, data_path, embed_data_path, model_meta, model_both, balance, split_type, seed):
         super().__init__()
         self.data_path = data_path
         self.embed_data_file = embed_data_path
@@ -41,6 +42,9 @@ class MetaSimon(ModelBase):
         self.split_type = split_type
         self.encoder = None
         self.classifier = None
+        self.seed = seed
+        tf.set_random_seed(seed)
+        np.random.seed(seed)
         
     def encode_data(self, X, y):
         start = time.time()
@@ -88,7 +92,7 @@ class MetaSimon(ModelBase):
         encoder_max_cells = X_simon.shape[1]
         category_count = y_simon.shape[1]
         self.classifier = Simon(encoder=self.encoder)
-        data = self._setup_test_sets(X_simon, y_simon)
+        data = self._setup_test_sets(X_simon, y_simon, random_state=self.seed)
         self.model_simon = self.classifier.generate_model(self.MAX_LEN, encoder_max_cells, category_count)
         self.model_simon.compile(loss='binary_crossentropy', optimizer='adam', metrics=['binary_accuracy'])
         self.classifier.train_model(self.batch_size, self.CHECKPOINT_DIR, self.model_simon, self.num_epochs, data)
