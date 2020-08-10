@@ -5,7 +5,9 @@ import os
 import os.path
 from datetime import datetime
 from sklearn.metrics import accuracy_score, f1_score, multilabel_confusion_matrix
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, ShuffleSplit
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 import time
 from d3m_profiler.build_table import build_table, TableKeys
 from BaselineSimon import BaselineSimon
@@ -135,6 +137,42 @@ def main():
             fold_scores.pop('confusion_matrix')
                 append_results('results2.csv', fold_scores)
     print(pd.read_csv('results.csv'))
+
+
+def stacking():
+    trim = None
+    groups = get_groups(trim_to_index=trim)
+    metadata_model, meta_x, meta_y = init_model(MetadataProfiler(rebalance=True, encoder='sentence_transformer'), [DATASET_NAME, COLUMN_NAME], trim_to_index=trim)
+    simon_model, data_x, data_y = init_model(BaselineSimon(), COLUMN_DATA, trim_to_index=trim)
+
+    splitter = GroupShuffleSplit(n_splits=1, train_size=0.67, random_state=42)
+    metadata_scores, simon_scores, actual = np.array([]), np.array([]), np.array([])
+    for fold_index, train_indices, test_indices in index_generator(groups.shape, groups, splitter):
+        metadata_model.fit(meta_x[train_indices], meta_y[train_indices])
+        simon_model.fit(data_x[train_indices], data_y[train_indices])
+        metadata_scores = np.append(metadata_scores, metadata_model.predict(meta_x[test_indices]))
+        simon_scores = np.append(simon_scores, simon_model.predict(data_x[test_indices]))
+        actual = np.append(actual, meta_y[test_indices])
+    
+    one_hot = OneHotEncoder()
+    one_hot.fit(np.unique(actual).reshape(-1, 1))
+    ordinal = OrdinalEncoder()
+    ordinal.fit(np.unique(actual).reshape(-1, 1))
+    X = np.hstack((one_hot.transform(metadata_scores.reshape(-1, 1)).toarray(), one_hot.transform(simon_scores.reshape(-1, 1)).toarray()))
+    y = ordinal.transform(actual.reshape(-1, 1))
+    
+    splitter = ShuffleSplit(n_splits=4, train_size=0.67, random_state=42)
+    for train_indices, test_indices in splitter.split(X):
+        lr = LogisticRegression(random_state=42).fit(X[train_indices], y[train_indices])
+        preds = lr.predict(X[test_indices])
+        scores = {
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M"),
+            'accuracy_score': round(accuracy_score(preds, y[test_indices]), 4),
+            'f1_score_micro': round(f1_score(preds, y[test_indices], average='micro'), 4),
+            'f1_score_macro': round(f1_score(preds, y[test_indices], average='macro'), 4),
+            'f1_score_weighted': round(f1_score(preds, y[test_indices], average='weighted'), 4),
+        }
+        append_results('stacking.csv', scores)
 
 
 if __name__ == '__main__':
