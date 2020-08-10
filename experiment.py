@@ -143,7 +143,7 @@ def stacking():
     trim = None
     groups = get_groups(trim_to_index=trim)
     metadata_model, meta_x, meta_y = init_model(MetadataProfiler(rebalance=True, encoder='sentence_transformer'), [DATASET_NAME, COLUMN_NAME], trim_to_index=trim)
-    simon_model, data_x, data_y = init_model(BaselineSimon(), COLUMN_DATA, trim_to_index=trim)
+    simon_model, data_x, data_y = init_model(BaselineSimon(multilabel=False), COLUMN_DATA, trim_to_index=trim)
 
     splitter = GroupShuffleSplit(n_splits=1, train_size=0.67, random_state=42)
     metadata_scores, simon_scores, actual = np.array([]), np.array([]), np.array([])

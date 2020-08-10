@@ -10,7 +10,7 @@ NUM_THREADS = cpu_count()
 
 
 class BaselineSimon(ModelBase):
-    def __init__(self, num_epochs=5, batch_size=64, max_cells=100, max_len=20):
+    def __init__(self, multilabel=True, num_epochs=5, batch_size=64, max_cells=100, max_len=20):
         super().__init__()
         self.P_THRESHOLD = 0.3
         self.MAX_CELLS = max_cells
@@ -19,6 +19,7 @@ class BaselineSimon(ModelBase):
         if not os.path.isdir(self.CHECKPOINT_DIR):
             os.makedirs(self.CHECKPOINT_DIR)
 
+        self.multilabel = multilabel
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.encoder = None
@@ -45,7 +46,9 @@ class BaselineSimon(ModelBase):
         prediction_indices = probabilities > self.P_THRESHOLD
         y_pred = np.zeros(probabilities.shape)
         y_pred[prediction_indices] = 1
-        return y_pred
+        if self.multilabel:
+            return y_pred
+        return np.array([self.encoder.categories[x] for x in np.argmax(probabilities, axis=1)])
 
     def get_note(self):
         return None
