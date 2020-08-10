@@ -30,8 +30,14 @@ def run_fold(model: ModelBase, X_train, y_train, X_test, y_test):
     start = time.time()
     model.fit(X_train, y_train)
     fold_scores = score(model, X_test, y_test)
-    fold_scores['time_elapsed'] = round(time.time() - start, 2)
+    fold_scores['time_elapsed'] = format_time_elapsed(time.time() - start)
     return fold_scores
+
+
+def format_time_elapsed(seconds):
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f'{int(hours)}:{int(minutes)}:{round(seconds, 2)}'
 
 
 def score(model: ModelBase, X_test, y_test):
