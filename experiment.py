@@ -47,6 +47,7 @@ def score(model: ModelBase, X_test, y_test):
         'fold_index': None,
         'classifier': model.__class__.__name__,
         'note': None,
+        'splitter': None,
         'accuracy_score': round(accuracy_score(y_test, predictions), 4),
         'f1_score_micro': round(f1_score(y_test, predictions, average='micro'), 4),
         'f1_score_macro': round(f1_score(y_test, predictions, average='macro'), 4),
@@ -79,36 +80,60 @@ def append_results(filepath: str, scores: dict):
         writer.writerow(scores)
 
 
-def main():
-    # parse data
+def init_model(model: ModelBase, X_columns, trim_to_index=None):
     data = parse_data()
-    X_data = standardize_data(data[COLUMN_DATA])
-    X_metadata = data[METADATA_X_LABELS]
-    y = data[COLUMN_TYPE].to_numpy().reshape(-1, 1)
-    groups = data[DATASET_NAME]
+    if trim_to_index:
+        print('Trimming data for testing purposes only')
+        data = data[:trim_to_index]
+        data = data.drop(index=42)  # drop instance with unique label; it breaks rebalancing
 
-    # initialize models
-    metadata_profiler = MetadataProfiler()
-    simon = BaselineSimon(max_cells=MAX_CELLS, max_len=MAX_LEN)
+    if X_columns == COLUMN_DATA:
+        X = standardize_data(data[X_columns])
+    else:
+        X = data[X_columns]
+    y = data[[COLUMN_TYPE]].to_numpy()
 
-    # encode data
-    X_metadata, y_metadata = metadata_profiler.encode_data(X_metadata, y)
-    X_data, y_data = simon.encode_data(X_data, y)
+    X, y = model.encode_data(X, y)
+    return model, X, y
 
-    # pack into tuples
-    simon_tuple = (simon, X_data, y_data)
-    metadata_profiler_tuple = (metadata_profiler, X_metadata.to_numpy(), y_metadata)
 
-    # run folds
-    splitter = GroupShuffleSplit(n_splits=2, train_size=0.67, random_state=42)
-    for fold_index, train_indices, test_indices in index_generator(data.shape, groups, splitter):
-        for model, X, y in [simon_tuple, metadata_profiler_tuple]:
+def get_groups(trim_to_index=None):
+    data = parse_data()
+    if trim_to_index:
+        data = data[:trim_to_index]
+        data = data.drop(index=42)
+    return data[DATASET_NAME]
+
+
+def main():
+    trim = None
+    groups = get_groups(trim_to_index=trim)
+    models = [
+        init_model(MetadataProfiler(rebalance=True, encoder='sentence_transformer'), [COLUMN_NAME], trim_to_index=trim),
+        init_model(MetadataProfiler(rebalance=False, encoder='sentence_transformer'), [COLUMN_NAME], trim_to_index=trim),
+        init_model(MetadataProfiler(rebalance=True, encoder='sentence_transformer'), [DATASET_NAME, COLUMN_NAME], trim_to_index=trim),
+        init_model(MetadataProfiler(rebalance=False, encoder='sentence_transformer'), [DATASET_NAME, COLUMN_NAME], trim_to_index=trim),
+
+        init_model(MetadataProfiler(rebalance=True, encoder='sentence_transformer'), ['resID', COLUMN_NAME], trim_to_index=trim),
+        init_model(MetadataProfiler(rebalance=False, encoder='sentence_transformer'), ['resID', COLUMN_DATA], trim_to_index=trim),
+
+        init_model(BaselineSimon(), COLUMN_DATA, trim_to_index=trim),
+    ]
+
+    splitters = [
+        GroupShuffleSplit(n_splits=4, train_size=0.67, random_state=42),
+    ]
+    print('Beginning Training')
+    for splitter in splitters:
+        for fold_index, train_indices, test_indices in index_generator(groups.shape, groups, splitter):
+            for model, X, y in models:
             fold_scores = run_fold(model, X[train_indices], y[train_indices], X[test_indices], y[test_indices])
             fold_scores['fold_index'] = fold_index
             fold_scores['note'] = model.get_note()
-            append_results('results_conf_mat.csv', fold_scores)
+                fold_scores['splitter'] = splitter.__class__.__name__
+                append_results('results_conf_mat2.csv', fold_scores)
             fold_scores.pop('confusion_matrix')
-            append_results('results.csv', fold_scores)
+                append_results('results2.csv', fold_scores)
     print(pd.read_csv('results.csv'))
 
 
