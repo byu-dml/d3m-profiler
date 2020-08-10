@@ -1,27 +1,24 @@
-import multiprocessing as mp
-import pickle as pk
-import sys
-
+import os
 import numpy as np
-import pandas as pd
 import sent2vec
+from sentence_transformers import SentenceTransformer
 
-_NUM_THREADS = (mp.cpu_count() - 1)
 
-"""
-Initializes a Sent2vecModel based on model weights
+SENT2VEC_MODEL = os.getenv('MODEL_WEIGHTS_DIR', '') + 'torontobooks_unigrams.bin'
+SENTENCE_TRANSFORMER_MODEL = 'distilbert-base-nli-stsb-mean-tokens'
 
-Returns
--------
-tuple(model, emb_size): Tuple(sent2vec.Sent2vecModel, int)
-    The Sent2vecModel model and the embedding size.
-"""
-def initialize_model(model_weights_path: str) -> (sent2vec.Sent2vecModel, int):
-    model = sent2vec.Sent2vecModel()
-    model.load_model(model_weights_path)
-    emb_size = model.get_emb_size()
-    
-    return model, emb_size
+
+def get_encoding_method(encoder: str):
+    if encoder == 'sent2vec':
+        model = sent2vec.Sent2vecModel()
+        model.load_model(SENT2VEC_MODEL)
+        return model.embed_sentences
+    elif encoder == 'sentence_transformer':
+        model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
+        return model.encode
+    else:
+        raise NotImplementedError
+
     
 """
 Embeds textual data in a DataFrame based on model weights and retains 
@@ -33,12 +30,9 @@ embedded_data: pandas.DataFrame
     The embedded DataFrame along with the group level dataset name and response
     variable.
 """
-def embed(X: pd.DataFrame, model_weights_path: str) -> pd.DataFrame:
-    model, emb_size = initialize_model(model_weights_path)
-
+def embed(X, encoder: str):
+    encoding_method = get_encoding_method(encoder)
     embeddings = []
-    for col in X.columns:
-        embedding = model.embed_sentences(X[col].str.lower(), num_threads=_NUM_THREADS)
-        embeddings.append(embedding)
-    return pd.DataFrame(data=np.hstack(tuple(embeddings)), columns=[f'emb_{i}' for i in range(len(embeddings)*emb_size)])
-
+    for i in range(len(X[0])):
+        embeddings.append(encoding_method(np.char.lower(X[:, i])))
+    return np.hstack(tuple(embeddings))
