@@ -1,11 +1,10 @@
 #!/bin/bash
 
-#SBATCH --time=5:00:00   # walltime
+#SBATCH --time=10:00:00   # walltime
 #SBATCH --ntasks=4   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=2  # number of nodes
-#SBATCH --gres=gpu:2 #number of gpus
 #SBATCH --mem-per-cpu=7000M   # memory per CPU core
-#SBATCH -J "Meta Tester"   # job name
+#SBATCH -J "MetaUnBal"   # job name
 
 #add the right thing to the file path
 export PATH="$HOME/.local/bin:$PATH"

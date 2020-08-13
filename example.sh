@@ -5,7 +5,7 @@
 #SBATCH --nodes=2  # number of nodes
 #SBATCH --gres=gpu:2 #number of gpus
 #SBATCH --mem-per-cpu=10000M   # memory per CPU core
-#SBATCH -J "Total Tester"   # job name
+#SBATCH -J "BoUn4"   # job name
 
 #add the right thing to the file path
 export PATH="$HOME/.local/bin:$PATH"

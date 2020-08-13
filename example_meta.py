@@ -18,15 +18,15 @@ np.random.seed(12)
 data_path = '../data_files/data/private_d3m_unembed_metadata.csv'
 weights_path = '../data_files/SentenceTransformer'
 embed_path ='SentenceTransformerEmbedding.csv'
-file_to_save = 'rf_mlp_bal.csv'
+file_to_save = 'rf_mlp_unbal.csv'
 
 forest_list = [rf(random_state=15), rf(random_state=31), rf(random_state=53), rf(random_state=43), rf(random_state=51)]
 mlp_list = [mlp(random_state=16), rf(random_state=35), rf(random_state=57), rf(random_state=41), rf(random_state=59)]
 initialized_models = []
 for i in range(len(forest_list)):
     split_type = GroupShuffleSplit(n_splits=4, test_size=0.3, random_state=np.random.randint(0,21))
-    model_rf = MetaDataProfiler(model=forest_list[i], use_col_name_only=True, embedding_type='SentenceTransformer', EMBEDDING_WEIGHTS_PATH=weights_path, model_name='RandomForest_{}'.format(i), balance_type='SMOTE', balance=True, embed_data_file=embed_path, split_type=split_type, data_path=data_path)
-    model_mlp = MetaDataProfiler(model=mlp_list[i], use_col_name_only=True, embedding_type='SentenceTransformer', EMBEDDING_WEIGHTS_PATH=weights_path, model_name='MLP_{}'.format(i), balance_type='SMOTE', balance=True, embed_data_file=embed_path, split_type=split_type, data_path=data_path)
+    model_rf = MetaDataProfiler(model=forest_list[i], use_col_name_only=True, embedding_type='SentenceTransformer', EMBEDDING_WEIGHTS_PATH=weights_path, model_name='RandomForest_{}'.format(i), balance_type='SMOTE', balance=False, embed_data_file=embed_path, split_type=split_type, data_path=data_path)
+    model_mlp = MetaDataProfiler(model=mlp_list[i], use_col_name_only=True, embedding_type='SentenceTransformer', EMBEDDING_WEIGHTS_PATH=weights_path, model_name='MLP_{}'.format(i), balance_type='SMOTE', balance=False, embed_data_file=embed_path, split_type=split_type, data_path=data_path)
     initialized_models.append(model_rf)
     initialized_models.append(model_mlp)
 
