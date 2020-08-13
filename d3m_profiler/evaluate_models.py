@@ -21,7 +21,7 @@ Returns
 tuple(y_hat,y_test): Tuple(list(str), list(str))
     Predictions from current kfold iteration and corresponding indices
 """
-def fit_predict_model(X_train, y_train, X_test, y_test, model, rank=None, iter_num = None):
+def fit_predict_model(X_train, y_train, X_test, y_test, model, dataset_names=None, rank=None, iter_num = None):
     model.fit(X_train,y_train)
     del X_train
     del y_train
@@ -30,7 +30,7 @@ def fit_predict_model(X_train, y_train, X_test, y_test, model, rank=None, iter_n
     y_test = list(y_test['colType'])
     if (rank is not None):
         print("Finished fold {} on processor {}".format(iter_num+1,rank))
-    return y_hat, y_test
+    return y_hat, y_test, list(dataset_names)
     
     
 """
@@ -60,15 +60,23 @@ results: pd.DataFrame
 def compile_results(model_name:str, results_final: list):
     y_test = list()
     y_hat = list()
+    dataset_names = list()
     #compute the results
-    for hat, test in results_final:
+    for hat, test, names in results_final:
         y_test += test
         y_hat += hat
+        dataset_names += names
     accuracy = accuracy_score(y_test, y_hat)
     f1_macro = f1_score(y_test, y_hat, average='macro')
     f1_micro = f1_score(y_test, y_hat, average='micro')
     f1_weighted = f1_score(y_test, y_hat, average='weighted')
     results = pd.DataFrame(data=np.array([[model_name, accuracy, f1_macro, f1_micro, f1_weighted]]), columns=['classifier', 'accuracy_score', 'f1_score_macro', 'f1_score_micro', 'f1_score_weighted'])
+    results_pred = pd.DataFrame(columns=['datasetName', 'colType', 'colTypePred'])
+    results_pred['datasetName'] = dataset_names
+    results_pred['colType'] = y_test
+    results_pred['colTypePred'] = y_hat
+    #save the prediction results
+    results_pred.to_csv('pred_results_{}.csv'.format(model_name), index=False)
     return results
    
 """
@@ -94,11 +102,13 @@ def get_variables(model):
         X_data = None
         jobs = None
         y = None
+        groups = None
     #get the values from the root processor
     y = COMM.bcast(y,root=0)
     jobs = COMM.scatter(jobs, root=0)
     X_data = COMM.bcast(X_data, root=0)
-    return X_data, jobs, y, COMM.rank
+    groups = COMM.bcast(groups, root=0)
+    return X_data, jobs, y, COMM.rank, groups
 
 """
 Gets the list of jobs for the multiprocessor system, this is a list based on the number of
@@ -146,13 +156,13 @@ results: (pd.DataFrame) - contains f1 and accuracy scores labeled accordingly
 """
 def evaluate_model(model):   
     #get the variables for cross validation
-    X_data, jobs, y, rank = get_variables(model=model)
+    X_data, jobs, y, rank, groups = get_variables(model=model)
     #run cross-validation on all the different processors
     results_init = []
     for it,job in enumerate(jobs):
         #print(job)
         train_ind, test_ind = job
-        results_init.append(fit_predict_model(X_data.iloc[train_ind], y.iloc[train_ind], X_data.iloc[test_ind], y.iloc[test_ind], model, rank=rank, iter_num = it))
+        results_init.append(fit_predict_model(X_data.iloc[train_ind], y.iloc[train_ind], X_data.iloc[test_ind], y.iloc[test_ind], model, dataset_names=groups.iloc[test_ind], rank=rank, iter_num = it))
     del jobs
     #get the total results of the cross_validation tests
     results = gather_results(results_init, model_name=model.model_name, root=0)

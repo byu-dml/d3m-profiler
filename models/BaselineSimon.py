@@ -28,7 +28,7 @@ class BaselineSimon(ModelBase):
         self.encoder = None
         self.classifier = None
         self.model_simon = None
-        self.model_name = model_name
+        self.model_name = model_name + '_{}'.format(seed)
         self.pkl = pkl
         self.embed_data_file = embed_data_file
         self.data_path = data_path

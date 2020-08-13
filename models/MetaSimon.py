@@ -24,7 +24,7 @@ class MetaSimon(ModelBase):
         self.model_simon = None
         self.embedding_weights_path = '../data_files/SentenceTransformer'
         self.balance = balance
-        self.model_name = 'simon_rf_mlp_model'
+        self.model_name = 'simon_rf_mlp_model' + '_{}'.format(seed)
         self.balance_type = 'SMOTE'
         self.map_path = 'simon_map.pkl'
         self.pkl = True
@@ -73,7 +73,7 @@ class MetaSimon(ModelBase):
         return X,y
         
     def fit(self, X, y):
-        print("Fitting Model")
+        print("Fitting Model {}".format(self.model_name))
         #fit metadata first
         unique, counts = np.unique(y['colType'], return_counts=True)
         balanced = len(np.unique(counts)) == 1
@@ -81,7 +81,6 @@ class MetaSimon(ModelBase):
             if not balanced:
                 X_meta, y_meta = rebalance(X.drop(['embedding'],axis=1).to_numpy(), y['colType'], self.balance_type)
                 y_meta = np.asarray(y_meta)
-                print(y_meta)
         else:
             X_meta = X.drop(['embedding'],axis=1).to_numpy()
             y_meta = y['colType'].to_numpy()
